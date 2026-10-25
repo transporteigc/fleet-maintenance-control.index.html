@@ -61,7 +61,7 @@ dialog{border-radius:18px}h3{font-size:20px;color:var(--p);margin:4px 0 12px}
 .cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}.cg details{margin:0}.cg summary{cursor:pointer;font-weight:600;color:var(--p)}
 @media(max-width:760px){nav{position:static;width:100%;max-height:none;display:flex}.vg{grid-template-columns:1fr}}
 </style></head><body>
-<div id="lg"><div class="lw"><img class="lgo" alt="Transporte IGC S.A.S."></div><h2>Control de Mantenimiento de Flota</h2><input id="u" placeholder="Usuario" autocomplete="username"><input id="p" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"><button onclick="doLogin()">Ingresar</button><p id="lerr"></p></div>
+<div id="lg"><div class="lw"><img class="lgo" alt="Transporte IGC S.A.S."></div><h2>Control de Mantenimiento de Flota</h2><input id="u" placeholder="Usuario" autocomplete="username"><input id="p" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"><button onclick="doLogin()">Ingresar</button><p id="lerr"></p><p class="lgd" style="text-align:center"><a href="#" onclick="cnxAbrir();return false">⚙ Conexión con Google Sheets</a><br><span id="cnxst"></span></p></div>
 <div id="app" hidden><header><div class="hl"><img class="lgo" alt="Transporte IGC S.A.S."><span class="t1">Control de Mantenimiento</span></div><span id="who"></span></header><div id="wrap"><nav id="nav"></nav><main id="main"></main></div></div>
 <dialog id="dlg"></dialog><div id="msg" hidden></div>
 <script>
@@ -75,7 +75,7 @@ Servicios:['equipo','fecha','km','horas','tipo|Cambio de aceite de motor/Valvuli
 Object.assign(S0,NEWS);
 const HASH='af8c4dc1cfb051552429f0a65ab6aa2f13443b34c6a1a672ed1c76c400477abf';
 async function sha(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-const call=(a,e,d)=>OFF?offCall(a,e,d||{}):new Promise((ok,ko)=>google.script.run.withSuccessHandler(r=>r.ok?ok(r.data):ko(r.error)).withFailureHandler(x=>ko(x.message)).api(T,a,e,d||{}));
+const call=(a,e,d)=>OFF?offCall(a,e,d||{}):cloud('api',{session:T,a,e,d:d||{}}).then(r=>r.data,x=>{throw x&&x.message||String(x)});
 function offCall(a,e,d){return new Promise(ok=>{const r=D0[e]=D0[e]||[];if(a==='list')return ok(r.map(x=>({...x})));if(a==='del'){D0[e]=r.filter(x=>x.id!==d.id);return ok(true)}
  if(a==='save'){const o=d.id&&r.find(x=>x.id===d.id);if(o)Object.assign(o,d);else r.push({...d,id:e.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase(),creado_por:U.u});return ok({})}ok('No disponible sin conexión')})}
 const lastOf=(p,re)=>((SEED.hv[p]&&SEED.hv[p].rows)||[]).filter(x=>re.test(x.desc)&&x.ej==='SI').map(x=>x.fecha).sort().pop()||'';
@@ -596,6 +596,7 @@ async function formsPage(m){m.innerHTML='<h3>Conexiones: Google Sheets y Google 
  const eF=okF?(st.activador?['Conectado y automático','g']:['Conectado, sin activador','y']):!st?['No comprobado','r']:!st.configurado?['Sin configurar','y']:['Con problemas','r'],eD=okD?['Conectada','g']:db?['Incompleta','y']:['No comprobada','r'];
  const CAMPOS=['fecha','conductor','tracto','trailer','km','componente','tipo','descripcion','riesgo','puede_operar','ubicacion','evidencias','observaciones'];
  $('#fp').innerHTML=`${er?`<div class=wn>⚠ ${esc(er)}</div>`:''}
+ <h4>🔌 0. Conexión con Apps Script</h4><div class=cards>${C('URL de la aplicación web',esc(cnxMask(CNX.url||'—')),cnxValida(CNX)?'g':'r')}${C('Estado del servidor',db||st?'Responde y aceptó el token':'No comprobado',db||st?'g':'r')}</div><div class=bar><button id=cx1 type=button>⚙ Cambiar conexión</button><button class=s id=cx2 type=button>🩺 Diagnosticar</button>${adm?'<button class=s id=cx3 type=button>⬇ Generar copia con conexión incluida</button><button class=s id=cx4 type=button>🔗 Copiar enlace de conexión</button>':''}</div><p class=lgd>La «copia con conexión incluida» es este mismo archivo con la URL y el token ya guardados: úsela en todos los equipos y celulares sin volver a configurar. Contiene el token: no la publique en un sitio abierto.</p>
  <h4>🗄 1. Base de datos: Google Sheets</h4><div class=cards>${C('Estado',eD[0],eD[1])}${C('Hoja de cálculo',db?esc(db.nombre):'—','')}${C('Hojas de datos',db?db.creadas+' / '+db.total:'—',okD?'g':'')}${C('Registros guardados',db?fmt(db.registros):'—','')}${C('Origen de la conexión',db?esc(db.origen):'—','')}</div>
  <div class=bar>${db?`<a class=lk href="${esc(db.url)}" target=_blank rel="noopener noreferrer">Abrir la hoja de cálculo</a>`:''}<button id=db1>🔌 Probar conexión</button></div>
  ${adm?`<details><summary><b>Cambiar o crear la base de datos</b></summary><p>Pegue la URL (o el ID) de una hoja de Google que ya tenga, o cree una nueva. Se crean allí las 19 hojas de datos sin borrar lo que contenga. <b>Los datos de la base anterior no se copian.</b></p><div class=bar><input id=dbv placeholder="URL o ID de la hoja de cálculo" style="min-width:320px"><button id=db2>Conectar esta hoja</button><button class=s id=db3>Crear base de datos nueva</button></div></details>`:''}
@@ -609,11 +610,101 @@ async function formsPage(m){m.innerHTML='<h3>Conexiones: Google Sheets y Google 
  ${st&&st.log.length?'<h4>Últimas sincronizaciones</h4>'+TB(['Fecha','Origen','Resultado','Nuevas','Ya importadas','Errores','Detalle'],st.log.map(l=>[esc(l.fecha),esc(l.origen),esc(l.resultado),l.importadas,l.duplicadas,l.errores,esc(l.detalle)])):''}
  <details><summary><b>Ayuda</b></summary><ol><li>Para conectar el formulario pegue el enlace del <b>modo edición</b> (docs.google.com/forms/d/…/edit) con la cuenta dueña del script; si no lo tiene a mano, pegue el enlace de la hoja de respuestas (formulario → Respuestas → «Vincular con Hojas de cálculo»).</li><li>La primera vez, Google pedirá autorizar permisos nuevos (Formularios): ejecute <b>verificarInstalacion</b> en el editor de Apps Script y acéptelos.</li><li>Envíe un reporte de prueba desde el celular: debe aparecer en Novedades con origen «Forms» en pocos segundos (o al pulsar «Sincronizar ahora»).</li><li>Las fotos son enlaces de Drive: se abren solo para quienes tengan permiso. No haga pública la carpeta ni la hoja de respuestas.</li><li>Esta página solo dice «Conectado» cuando el servidor logró leer la hoja y encontró fecha, placa y descripción.</li></ol></details>`;
  const go2=async(f,ok)=>{try{const r=await f();msg(typeof r==='string'?r:(r&&r.mensaje)||ok||'Listo');Object.keys(D).forEach(k=>delete D[k]);formsPage(m)}catch(x){msg(x&&x.message||x,1)}};
- const b=(id,fn)=>{if($('#'+id))$('#'+id).onclick=fn};b('db1',()=>formsPage(m));b('fb',()=>formsPage(m));
+ const b=(id,fn)=>{if($('#'+id))$('#'+id).onclick=fn};b('db1',()=>formsPage(m));b('cx1',cnxAbrir);b('cx2',cnxDiag);b('cx3',cnxGenerar);b('cx4',cnxCopiarEnlace);b('fb',()=>formsPage(m));
  b('db2',()=>go2(()=>call('db_connect','Auditoria',{valor:$('#dbv').value}),'Base de datos conectada'));
  b('db3',()=>{if(confirm('Se creará una hoja de cálculo nueva y vacía, y la aplicación usará esa. Los datos actuales no se copian. ¿Continuar?'))go2(()=>call('db_connect','Auditoria',{crear:true}),'Base de datos creada')});
  b('fc',()=>go2(()=>call('forms_connect','Auditoria',{valor:$('#fv').value,sheetName:$('#fsn').value}),'Formulario conectado'));
  b('fs',()=>go2(()=>call('sync','Auditoria')));
  b('fm',()=>{const map={};document.querySelectorAll('#fp select[data-c]').forEach(s=>{if(s.value)map[s.dataset.c]=s.value});go2(()=>call('forms_connect','Auditoria',{valor:st.idHoja,sheetName:st.sheetName,map}),'Mapeo guardado')})}
+
+
+/* ===== v4 · Conexión con Google Sheets por URL + token (igual que IGC Fuel Control) =====
+ * El HTML es un archivo independiente: se conecta a la aplicación web de Apps Script con fetch (POST text/plain).
+ * No hay que pegarlo en Apps Script. El token (APP_TOKEN) abre el servicio; cada persona además inicia sesión con su usuario. */
+const CK='igc_mant_cloud';
+/* CONEXIÓN INCRUSTADA: la completa «Generar copia con conexión incluida». Con ella el archivo se conecta solo en cualquier equipo. Contiene el token: manténgalo privado. */
+const CONEXION_FIJA={"url":"","token":""};
+let CNX={};try{CNX=JSON.parse(localStorage.getItem(CK)||'{}')}catch(e){}
+let cnxOrigen='';
+const cnxValida=c=>!!(c&&/^https:\/\/script\.google\.com\/.+\/exec$/.test(String(c.url||'').trim())&&String(c.token||'').trim());
+const cnxCodigo=c=>btoa(unescape(encodeURIComponent(JSON.stringify({u:c.url,t:c.token})))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+function cnxLeer(txt){try{txt=String(txt||'').trim();const m=/cfg=([A-Za-z0-9_\-]+)/.exec(txt),b=(m?m[1]:txt).replace(/-/g,'+').replace(/_/g,'/'),j=JSON.parse(decodeURIComponent(escape(atob(b))));const c={url:String(j.u||'').trim(),token:String(j.t||'').trim()};return cnxValida(c)?c:null}catch(e){return null}}
+(function(){
+ try{if(/[#&]cfg=/.test(location.hash||'')){const c=cnxLeer(location.hash);if(c){CNX=c;localStorage.setItem(CK,JSON.stringify(CNX));cnxOrigen='enlace'}try{history.replaceState(null,'',location.href.split('#')[0])}catch(e){}}}catch(e){}
+ try{if(cnxValida(CONEXION_FIJA)&&(CNX.url!==CONEXION_FIJA.url.trim()||CNX.token!==CONEXION_FIJA.token.trim())){CNX={url:CONEXION_FIJA.url.trim(),token:CONEXION_FIJA.token.trim()};try{localStorage.setItem(CK,JSON.stringify(CNX))}catch(e){}cnxOrigen='archivo'}}catch(e){}
+})();
+class CloudErr extends Error{constructor(m,code,extra){super(m);this.code=code;this.extra=extra||{}}}
+async function cloud(action,payload,cfg,ms){cfg=cfg||CNX;const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),ms||60000);let r,tx;
+ try{r=await fetch(cfg.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action,token:cfg.token},payload)),signal:ctl.signal});tx=await r.text()}
+ catch(e){clearTimeout(tm);if(e&&e.name==='AbortError')throw new CloudErr('Tiempo de espera agotado: Google no respondió','TIMEOUT');throw new CloudErr(e&&e.message||String(e),'NET')}
+ clearTimeout(tm);let j;try{j=JSON.parse(tx)}catch(e){const t=(tx.match(/<title>([^<]*)<\/title>/i)||[])[1]||'';throw new CloudErr('Google devolvió una página HTML en lugar de datos'+(t?' («'+t.trim()+'»)':''),'HTML',{html:tx.slice(0,400),title:t})}
+ if(!j.ok)throw new CloudErr(j.error||'Error','APP',{resp:j});return j}
+const cnxMask=u=>String(u||'').replace(/\/s\/([A-Za-z0-9_-]{6})[A-Za-z0-9_-]*([A-Za-z0-9_-]{4})\//,'/s/$1…$2/');
+function cnxEstadoLogin(){const e=$('#cnxst');if(e)e.textContent=cnxValida(CNX)?'Conexión configurada ('+cnxMask(CNX.url)+')':'Sin conexión configurada'}
+async function doLogin(){const e=$('#lerr');
+ if(!cnxValida(CNX)){e.innerHTML='Primero configure la conexión con Google Sheets. <a href="#" onclick="cnxAbrir();return false">Configurar conexión</a> · <a href="#" onclick="offLogin();return false">Entrar sin conexión</a>';return}
+ e.textContent='Ingresando…';
+ try{const r=await cloud('login',{u:$('#u').value.trim(),p:$('#p').value},null,45000);
+  T=r.token;U=r.user;S=Object.assign({},NEWS,r.schema);window.srvMiss=!(r.schema&&r.schema.Uso&&r.schema.Servicios);window.srvMissP=!(r.schema&&r.schema.Preop&&r.schema.Vencimientos);
+  document.body.classList.remove('out');$('#lg').hidden=true;$('#app').hidden=false;$('#who').textContent=U.nombre+' · '+U.rol;menu();go('cc');
+  if(cnxOrigen){msg('Conexión configurada automáticamente ('+(cnxOrigen==='enlace'?'enlace':'archivo')+')');cnxOrigen=''}}
+ catch(x){const m=x&&x.message||String(x);e.innerHTML=esc(m)+(x.code==='APP'?'':' · <a href="#" onclick="cnxDiag();return false">Diagnosticar conexión</a>')+' · <a href="#" onclick="cnxAbrir();return false">Conexión</a> · <a href="#" onclick="offLogin();return false">Entrar sin conexión</a>'}}
+/* --- ventana de conexión --- */
+function cnxAbrir(){const d=$('#dlg');
+ d.innerHTML=`<h3 style="margin-top:0">Conexión con Google Sheets (Apps Script)</h3><p class="lgd">Pegue la <b>URL de la aplicación web</b> (termina en /exec) y el <b>token de acceso</b> (APP_TOKEN) que muestra la función <b>configurar()</b> en Apps Script. También puede pegar un <b>enlace o código de conexión</b>.</p>
+ <label>Enlace o código de conexión (opcional)</label><input id="cx-code" placeholder="…#cfg=…"><label>URL de la aplicación web</label><input id="cx-url" value="${esc(CNX.url||'')}" placeholder="https://script.google.com/macros/s/…/exec"><label>Token de acceso (APP_TOKEN)</label><input id="cx-tok" type="password" value="${esc(CNX.token||'')}">
+ <div class="bar" style="margin-top:10px"><button id="cx-ok" type="button">Guardar y probar</button><button class="s" id="cx-dx" type="button">🩺 Diagnosticar</button><button class="s" id="cx-x" type="button">Cerrar</button></div><div id="cx-out" class="lgd"></div>`;
+ d.showModal();$('#cx-x').onclick=()=>d.close();
+ $('#cx-code').oninput=e=>{const c=cnxLeer(e.target.value);if(c){$('#cx-url').value=c.url;$('#cx-tok').value=c.token;$('#cx-out').textContent='Código reconocido: pulse «Guardar y probar».'}};
+ const leer=()=>({url:$('#cx-url').value.trim(),token:$('#cx-tok').value.trim()});
+ $('#cx-ok').onclick=async()=>{const c=leer();if(!cnxValida(c)){$('#cx-out').innerHTML='<span class=bad>La URL debe ser https://script.google.com/…/exec y el token no puede estar vacío.</span>';return}
+  CNX=c;try{localStorage.setItem(CK,JSON.stringify(c))}catch(e){}cnxEstadoLogin();$('#cx-out').textContent='Probando…';
+  try{await cloud('ping',{},c,25000);$('#cx-out').innerHTML='✔ Conexión correcta: el servidor respondió y aceptó el token. Ya puede iniciar sesión.'}catch(x){$('#cx-out').innerHTML='<span class=bad>✖ '+esc(x.message)+'</span> — pulse «Diagnosticar».'}};
+ $('#cx-dx').onclick=()=>{const c=leer();if(c.url||c.token){CNX=c;try{localStorage.setItem(CK,JSON.stringify(c))}catch(e){}}cnxDiag()}}
+/* --- diagnóstico --- */
+function dxUrl(u){
+ if(!u)return['crit','No hay URL escrita','Pegue la URL de la implementación (termina en /exec).'];
+ if(/\s/.test(u))return['crit','La URL contiene espacios o saltos de línea','Cópiela de nuevo sin espacios.'];
+ if(/docs\.google\.com\/spreadsheets/.test(u))return['crit','Pegó la URL de la hoja de cálculo','Aquí va la URL de Apps Script (script.google.com/macros/s/…/exec), no la de la hoja.'];
+ if(/^AKfycb[\w-]+$/.test(u))return['crit','Pegó solo el ID de la implementación','Use la URL completa: https://script.google.com/macros/s/ID/exec'];
+ if(!/^https:\/\//i.test(u))return['crit','La URL no empieza por https://','Copie la URL completa desde Implementar → Administrar implementaciones.'];
+ if(/script\.google\.com\/(home|d\/)|\/edit(\?|#|$)/.test(u))return['crit','Es la URL del editor, no la de la aplicación web','Implementar → Administrar implementaciones → copie la «URL de la aplicación web».'];
+ if(/\/dev(\?|#|$)/.test(u))return['crit','Es la URL de prueba (/dev)','Use la que termina en /exec.'];
+ if(/\/exec\?./.test(u))return['warn','La URL tiene parámetros después de /exec','Déjela terminada exactamente en /exec.'];
+ if(!/^https:\/\/script\.google\.com\/(?:macros\/|a\/macros\/[^\/]+\/|a\/[^\/]+\/macros\/)s\/[A-Za-z0-9_-]{20,}\/exec$/.test(u))return['warn','El formato de la URL no es el habitual','Debe verse así: https://script.google.com/macros/s/AKfycb…/exec'];
+ return['ok','Formato de URL correcto',''];}
+async function dxReach(u,ms){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms||12000),t0=performance.now();
+ try{await fetch(u,{mode:'no-cors',cache:'no-store',signal:c.signal});return{ok:true,ms:Math.round(performance.now()-t0)}}catch(e){return{ok:false,err:e&&e.name==='AbortError'?'sin respuesta en '+((ms||12000)/1000)+' s':(e&&e.message||String(e))}}finally{clearTimeout(t)}}
+async function cnxDiag(){const d=$('#dlg'),R=[],ico={ok:'✔',warn:'⚠',crit:'✖'},url=(CNX.url||'').trim(),token=(CNX.token||'').trim();let nota='';
+ const paint=()=>{d.innerHTML='<h3 style="margin-top:0">Diagnóstico de la conexión</h3>'+TB(['#','Prueba','Resultado','Qué hacer'],R.map((r,i)=>[i+1,esc(r.t),ico[r.e]+' '+esc(r.d),esc(r.a)]))+(nota?'<p class="lgd">⏳ '+esc(nota)+'</p>':'')+'<div class="bar" style="margin-top:10px"><button class="s" id="dx-x" type="button">Cerrar</button></div>';$('#dx-x').onclick=()=>d.close()};
+ const add=(e,t,dd,a)=>{R.push({e,t,d:dd,a:a||''});nota='';paint()};if(!d.open)d.showModal();paint();
+ const loc=location.protocol+'//'+(location.host||'(archivo local)');
+ add(/claude|anthropic/i.test(location.hostname)?'crit':'ok','Entorno de la página','Abierta desde '+loc,/claude|anthropic/i.test(location.hostname)?'Dentro de Claude las conexiones externas se bloquean. Descargue el index.html y ábralo en su computador o súbalo a su hosting.':'');
+ add(navigator.onLine===false?'crit':'ok','Internet del equipo',navigator.onLine===false?'Sin conexión':'Activo',navigator.onLine===false?'Revise el wifi o los datos.':'');
+ const [ue,ud,ua]=dxUrl(url);add(ue,'Formato de la URL',ud,ua);add(token?'ok':'crit','Token de acceso',token?'Escrito ('+token.length+' caracteres)':'Está vacío','Es el APP_TOKEN que muestra configurar() en Apps Script.');
+ if(ue==='crit'||!token)return;
+ nota='Probando acceso a Google…';paint();const g=await dxReach('https://www.google.com/generate_204',10000);
+ if(!g.ok){add('crit','Acceso a Google','No se pudo llegar a google.com ('+g.err+')','Problema de red general (proxy, firewall, VPN). Pruebe con otra red.');return}
+ add('ok','Acceso a Google','Alcanzable','');nota='Comprobando la implementación…';paint();const s=await dxReach(url,15000);
+ add(s.ok?'ok':'crit','La implementación responde',s.ok?'El servidor contestó en '+s.ms+' ms':'No hay respuesta ('+s.err+')',s.ok?'':'Revise que la URL esté completa y que la implementación no haya sido eliminada.');
+ nota='Enviando consulta de prueba al script…';paint();
+ try{await cloud('ping',{},null,25000);add('ok','Consulta de prueba (POST)','El script respondió y aceptó el token','')}
+ catch(e){const m=e.message||String(e);
+  if(e.code==='APP')add('crit','Consulta de prueba (POST)','El script respondió: «'+m+'»',/token/i.test(m)?'El token no coincide con APP_TOKEN (Apps Script → Configuración del proyecto → Propiedades del script). Copie el valor exacto que muestra configurar().':'Revise Ejecuciones en el editor de Apps Script.');
+  else if(e.code==='HTML'){const h=(e.extra.html||'')+' '+(e.extra.title||'');add('crit','Consulta de prueba (POST)',/sign.?in|iniciar sesi|accounts\.google/i.test(h)?'Google pide iniciar sesión: la implementación no es pública':m,/sign.?in|iniciar sesi|accounts\.google/i.test(h)?'En Administrar implementaciones → ✏ → «Quién tiene acceso»: Cualquier persona; luego Nueva versión → Implementar.':'Falta doPost o la implementación quedó con una versión antigua: cree una «Nueva versión».')}
+  else if(e.code==='TIMEOUT')add('warn','Consulta de prueba (POST)',m,'El primer arranque de Apps Script puede tardar; repita el diagnóstico.');
+  else add('crit','Consulta de prueba (POST)','El navegador no pudo leer la respuesta ('+m+')','Causas: (1) «Quién tiene acceso» no es «Cualquier persona»; (2) falta una Nueva versión de la implementación; (3) extensión o antivirus que bloquea; (4) cuenta Workspace que impide acceso público. Abra la URL en incógnito: si pide iniciar sesión, es la causa (1).')}}
+/* --- generar copia con la conexión incluida --- */
+async function cnxGenerar(){if(!cnxValida(CNX))return msg('Primero guarde una URL y un token válidos en «Conexión»',1);
+ const RX=/const CONEXION_FIJA=\{[^}]*\};/;let t=null;
+ if(/^https?:$/.test(location.protocol)){try{const r=await fetch(location.href.split('#')[0],{cache:'no-store'});if(r.ok){const x=await r.text();if(RX.test(x))t=x}}catch(e){}}
+ if(!t){msg('Elija en el selector este mismo archivo HTML del aplicativo');t=await new Promise(res=>{const i=document.createElement('input');i.type='file';i.accept='.html,.htm';i.onchange=()=>{const f=i.files[0];if(!f)return res(null);const rd=new FileReader();rd.onload=()=>res(String(rd.result));rd.onerror=()=>res(null);rd.readAsText(f)};i.oncancel=()=>res(null);i.click()})}
+ if(!t||!RX.test(t))return msg('No se pudo leer el archivo: seleccione el HTML del aplicativo',1);
+ t=t.replace(RX,()=>'const CONEXION_FIJA='+JSON.stringify({url:CNX.url,token:CNX.token})+';');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/html;charset=utf-8'}));a.download='IGC_Mantenimiento_con_conexion.html';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+ msg('Listo: use «IGC_Mantenimiento_con_conexion.html» en todos sus dispositivos')}
+function cnxCopiarEnlace(){if(!cnxValida(CNX))return msg('Primero configure la conexión',1);const l=location.href.split('#')[0]+'#cfg='+cnxCodigo(CNX);
+ const f=()=>prompt('Copie el enlace (Ctrl+C):',l);try{navigator.clipboard.writeText(l).then(()=>msg('Enlace de conexión copiado'),f)}catch(e){f()}}
+cnxEstadoLogin();
 
 </script></body></html>
