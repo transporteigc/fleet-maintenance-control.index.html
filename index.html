@@ -62,7 +62,7 @@ dialog{border-radius:18px}h3{font-size:20px;color:var(--p);margin:4px 0 12px}
 @media(max-width:760px){nav{position:static;width:100%;max-height:none;display:flex}.vg{grid-template-columns:1fr}}
 </style></head><body>
 <div id="lg"><div class="lw"><img class="lgo" alt="Transporte IGC S.A.S."></div><h2>Control de Mantenimiento de Flota</h2><input id="u" placeholder="Usuario" autocomplete="username"><input id="p" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"><button onclick="doLogin()">Ingresar</button><p id="lerr"></p><p class="lgd" style="text-align:center"><a href="#" onclick="cnxAbrir();return false">⚙ Conexión con Google Sheets</a><br><span id="cnxst"></span></p></div>
-<div id="app" hidden><header><div class="hl"><img class="lgo" alt="Transporte IGC S.A.S."><span class="t1">Control de Mantenimiento</span></div><span id="who"></span></header><div id="wrap"><nav id="nav"></nav><main id="main"></main></div></div>
+<div id="app" hidden><header><div class="hl"><img class="lgo" alt="Transporte IGC S.A.S."><span class="t1">Control de Mantenimiento</span></div><span id="who"></span><button id="salir" type="button" onclick="cerrarSesion()" style="margin-left:10px;padding:4px 10px;font-size:12px">Salir</button></header><div id="wrap"><nav id="nav"></nav><main id="main"></main></div></div>
 <dialog id="dlg"></dialog><div id="msg" hidden></div>
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -75,7 +75,7 @@ Servicios:['equipo','fecha','km','horas','tipo|Cambio de aceite de motor/Valvuli
 Object.assign(S0,NEWS);
 const HASH='af8c4dc1cfb051552429f0a65ab6aa2f13443b34c6a1a672ed1c76c400477abf';
 async function sha(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-const call=(a,e,d)=>OFF?offCall(a,e,d||{}):cloud('api',{session:T,a,e,d:d||{}}).then(r=>r.data,x=>{throw x&&x.message||String(x)});
+const call=(a,e,d)=>OFF?offCall(a,e,d||{}):cloud('api',{session:T,a,e,d:d||{}}).then(r=>r.data,x=>{const m=x&&x.message||String(x);if(/^Sesi[oó]n/i.test(m))sesionPerdida(m);throw m});
 function offCall(a,e,d){return new Promise(ok=>{const r=D0[e]=D0[e]||[];if(a==='list')return ok(r.map(x=>({...x})));if(a==='del'){D0[e]=r.filter(x=>x.id!==d.id);return ok(true)}
  if(a==='save'){const o=d.id&&r.find(x=>x.id===d.id);if(o)Object.assign(o,d);else r.push({...d,id:e.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase(),creado_por:U.u});return ok({})}ok('No disponible sin conexión')})}
 const lastOf=(p,re)=>((SEED.hv[p]&&SEED.hv[p].rows)||[]).filter(x=>re.test(x.desc)&&x.ej==='SI').map(x=>x.fecha).sort().pop()||'';
@@ -641,12 +641,21 @@ async function cloud(action,payload,cfg,ms){cfg=cfg||CNX;const ctl=new AbortCont
  if(!j.ok)throw new CloudErr(j.error||'Error','APP',{resp:j});return j}
 const cnxMask=u=>String(u||'').replace(/\/s\/([A-Za-z0-9_-]{6})[A-Za-z0-9_-]*([A-Za-z0-9_-]{4})\//,'/s/$1…$2/');
 function cnxEstadoLogin(){const e=$('#cnxst');if(e)e.textContent=cnxValida(CNX)?'Conexión configurada ('+cnxMask(CNX.url)+')':'Sin conexión configurada'}
+/* --- sesión sin límite de tiempo: el navegador recuerda el ingreso hasta que usted pulse «Salir» --- */
+const SK='igc_mant_ses';
+function guardarSesion(schema){try{localStorage.setItem(SK,JSON.stringify({t:T,u:U,s:schema,c:CNX.url}))}catch(e){}}
+function cerrarSesion(){try{localStorage.removeItem(SK)}catch(e){}location.reload()}
+function sesionPerdida(m){try{localStorage.removeItem(SK)}catch(e){}if(window.__sp)return;window.__sp=1;T=null;$('#app').hidden=true;$('#lg').hidden=false;document.body.classList.add('out');$('#lerr').textContent=String(m||'Sesión inválida.')+' Ingrese de nuevo.';setTimeout(()=>{window.__sp=0},1500)}
+function restaurarSesion(){try{const s=JSON.parse(localStorage.getItem(SK)||'null');if(!s||!s.t||!s.u||s.c!==CNX.url||!cnxValida(CNX))return false;
+ T=s.t;U=s.u;S=Object.assign({},NEWS,s.s||{});window.srvMiss=!(S.Uso&&S.Servicios);window.srvMissP=!(S.Preop&&S.Vencimientos);
+ document.body.classList.remove('out');$('#lg').hidden=true;$('#app').hidden=false;$('#who').textContent=U.nombre+' · '+U.rol;menu();go('cc');
+ call('schema','Auditoria').then(sc=>{S=Object.assign({},NEWS,sc)},()=>{});return true}catch(e){return false}}
 async function doLogin(){const e=$('#lerr');
  if(!cnxValida(CNX)){e.innerHTML='Primero configure la conexión con Google Sheets. <a href="#" onclick="cnxAbrir();return false">Configurar conexión</a> · <a href="#" onclick="offLogin();return false">Entrar sin conexión</a>';return}
  e.textContent='Ingresando…';
  try{const r=await cloud('login',{u:$('#u').value.trim(),p:$('#p').value},null,45000);
   T=r.token;U=r.user;S=Object.assign({},NEWS,r.schema);window.srvMiss=!(r.schema&&r.schema.Uso&&r.schema.Servicios);window.srvMissP=!(r.schema&&r.schema.Preop&&r.schema.Vencimientos);
-  document.body.classList.remove('out');$('#lg').hidden=true;$('#app').hidden=false;$('#who').textContent=U.nombre+' · '+U.rol;menu();go('cc');
+  document.body.classList.remove('out');$('#lg').hidden=true;$('#app').hidden=false;$('#who').textContent=U.nombre+' · '+U.rol;menu();go('cc');guardarSesion(r.schema);
   if(cnxOrigen){msg('Conexión configurada automáticamente ('+(cnxOrigen==='enlace'?'enlace':'archivo')+')');cnxOrigen=''}}
  catch(x){const m=x&&x.message||String(x);e.innerHTML=esc(m)+(x.code==='APP'?'':' · <a href="#" onclick="cnxDiag();return false">Diagnosticar conexión</a>')+' · <a href="#" onclick="cnxAbrir();return false">Conexión</a> · <a href="#" onclick="offLogin();return false">Entrar sin conexión</a>'}}
 /* --- ventana de conexión --- */
@@ -706,5 +715,6 @@ async function cnxGenerar(){if(!cnxValida(CNX))return msg('Primero guarde una UR
 function cnxCopiarEnlace(){if(!cnxValida(CNX))return msg('Primero configure la conexión',1);const l=location.href.split('#')[0]+'#cfg='+cnxCodigo(CNX);
  const f=()=>prompt('Copie el enlace (Ctrl+C):',l);try{navigator.clipboard.writeText(l).then(()=>msg('Enlace de conexión copiado'),f)}catch(e){f()}}
 cnxEstadoLogin();
+if(!OFF)restaurarSesion();
 
 </script></body></html>
