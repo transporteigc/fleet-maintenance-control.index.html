@@ -60,25 +60,9 @@ dialog{border-radius:18px}h3{font-size:20px;color:var(--p);margin:4px 0 12px}
 .ok2{background:#d9f2db;color:#1b5e20}.b.p{background:#e3ecff;color:#1a3fa0}
 .cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px}.cg details{margin:0}.cg summary{cursor:pointer;font-weight:600;color:var(--p)}
 @media(max-width:760px){nav{position:static;width:100%;max-height:none;display:flex}.vg{grid-template-columns:1fr}}
-.sk{height:14px;border-radius:8px;background:linear-gradient(90deg,#e3e9f0,#f3f6f9,#e3e9f0);background-size:200% 100%;animation:skm 1.1s infinite linear;margin:10px 0}@keyframes skm{to{background-position:-200% 0}}
-.calbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.calbar .seg{margin:0}.calbar .ctitle{font-size:18px;color:var(--p);min-width:170px;text-align:center;text-transform:capitalize}.calbar select{max-width:200px}
-.calflt{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;margin:6px 0 12px}.calflt label{display:inline-flex;gap:5px;align-items:center;cursor:pointer}
-.cgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:#d5dde6;border:1px solid #d5dde6;border-radius:12px;overflow:hidden}
-.cgh{background:#eaf0f6;padding:6px;text-align:center;font-weight:700;font-size:12px;color:var(--p)}
-.cd{background:#fff;min-height:100px;padding:4px;cursor:pointer;overflow:hidden;min-width:0}.cd:hover{background:#f4f9ff}.cd.out{background:#f7f9fb;color:#9aa6b2}.cd.out .ce{opacity:.65}.cd.sel{outline:2px solid var(--a);outline-offset:-2px}
-.cd .dn{display:inline-block;min-width:22px;height:22px;line-height:22px;text-align:center;border-radius:11px;font-size:12px;font-weight:700}.cd.hoy .dn{background:var(--p);color:#fff}
-.ce{font-size:11px;line-height:1.3;border-radius:5px;padding:1px 5px;margin-top:2px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ce.l1{background:#c62828}.ce.l2{background:#ef6c00}.ce.l3{background:#f9a825;color:#3b2a00}.ce.l4{background:#2e7d32}.ce.l5{background:#90a4ae}.ce.ot{background:#1565c0}.ce.dn{background:#cfd8dc;color:#37474f}
-.cmore{font-size:11px;color:var(--mut);margin-top:2px}
-.yg{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:12px}.ym{background:#fff;border-radius:12px;padding:10px;box-shadow:var(--sh)}.ym h5{margin:0 0 6px;text-transform:capitalize;color:var(--p);cursor:pointer;font-size:14px}
-.ymg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-size:11px}.ymg i{font-style:normal;color:var(--mut);font-weight:700}
-.yd{padding:4px 0;border-radius:6px;cursor:pointer}.yd:hover{outline:1px solid var(--p)}.yd.l1{background:#c62828;color:#fff}.yd.l2{background:#ef6c00;color:#fff}.yd.l3{background:#f9a825;color:#3b2a00}.yd.l4{background:#2e7d32;color:#fff}.yd.ot{background:#1565c0;color:#fff}.yd.dn{background:#cfd8dc}.yd.hoy{box-shadow:inset 0 0 0 2px var(--a);font-weight:800}.yd.sel{outline:2px solid var(--a)}
-.ldg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin:12px 0 0}.ldg span{display:inline-flex;align-items:center;gap:5px}.ldg i{width:12px;height:12px;border-radius:3px;display:inline-block}
-.cdet{background:#fff;border-radius:12px;box-shadow:var(--sh);padding:12px 14px;margin-top:12px}.evr{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #e8edf2}.evr:last-child{border:0}.evr .ic{font-size:20px}.evr .bd{flex:1;min-width:0;white-space:normal}.evr small{color:var(--mut)}
-@media(max-width:760px){.cd{min-height:60px}.ce{font-size:0;padding:0;width:8px;height:8px;border-radius:50%;display:inline-block;margin:1px}.cmore{display:none}.calbar .ctitle{min-width:0;flex:1}}
 </style></head><body>
 <div id="lg"><div class="lw"><img class="lgo" alt="Transporte IGC S.A.S."></div><h2>Control de Mantenimiento de Flota</h2><input id="u" placeholder="Usuario" autocomplete="username"><input id="p" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"><button onclick="doLogin()">Ingresar</button><p id="lerr"></p><p class="lgd" style="text-align:center"><a href="#" onclick="cnxAbrir();return false">⚙ Conexión con Google Sheets</a><br><span id="cnxst"></span></p></div>
-<div id="app" hidden><header><div class="hl"><img class="lgo" alt="Transporte IGC S.A.S."><span class="t1">Control de Mantenimiento</span></div><span id="who"></span><button id="ref" type="button" onclick="refrescarTodo()" title="Volver a leer los datos de Google Sheets" style="margin-left:10px;padding:4px 10px;font-size:12px;background:#0b4a66">↻ Actualizar</button><button id="salir" type="button" onclick="cerrarSesion()" style="margin-left:10px;padding:4px 10px;font-size:12px">Salir</button></header><div id="wrap"><nav id="nav"></nav><main id="main"></main></div></div>
+<div id="app" hidden><header><div class="hl"><img class="lgo" alt="Transporte IGC S.A.S."><span class="t1">Control de Mantenimiento</span></div><span id="who"></span><button id="salir" type="button" onclick="cerrarSesion()" style="margin-left:10px;padding:4px 10px;font-size:12px">Salir</button></header><div id="wrap"><nav id="nav"></nav><main id="main"></main></div></div>
 <dialog id="dlg"></dialog><div id="msg" hidden></div>
 <script>
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -91,8 +75,7 @@ Servicios:['equipo','fecha','km','horas','tipo|Cambio de aceite de motor/Valvuli
 Object.assign(S0,NEWS);
 const HASH='af8c4dc1cfb051552429f0a65ab6aa2f13443b34c6a1a672ed1c76c400477abf';
 async function sha(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-const call=(a,e,d)=>call0(a,e,d).then(r=>{if(!OFF&&(a==='save'||a==='del'))afterWrite(a,e,d,r);return r});
-const call0=(a,e,d)=>OFF?offCall(a,e,d||{}):cloud('api',{session:T,a,e,d:d||{}}).then(r=>r.data,x=>{const m=x&&x.message||String(x);if(/^Sesi[oó]n/i.test(m))sesionPerdida(m);throw m});
+const call=(a,e,d)=>OFF?offCall(a,e,d||{}):cloud('api',{session:T,a,e,d:d||{}}).then(r=>r.data,x=>{const m=x&&x.message||String(x);if(/^Sesi[oó]n/i.test(m))sesionPerdida(m);throw m});
 function offCall(a,e,d){return new Promise(ok=>{const r=D0[e]=D0[e]||[];if(a==='list')return ok(r.map(x=>({...x})));if(a==='del'){D0[e]=r.filter(x=>x.id!==d.id);return ok(true)}
  if(a==='save'){const o=d.id&&r.find(x=>x.id===d.id);if(o)Object.assign(o,d);else r.push({...d,id:e.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase(),creado_por:U.u});return ok({})}ok('No disponible sin conexión')})}
 const lastOf=(p,re)=>((SEED.hv[p]&&SEED.hv[p].rows)||[]).filter(x=>re.test(x.desc)&&x.ej==='SI').map(x=>x.fecha).sort().pop()||'';
@@ -183,34 +166,7 @@ async function alertView(m){await Promise.all(['Tractocamiones','Traileres','Pla
  <p><b>Novedades y correctivos:</b> la prioridad se sugiere según la clase del componente, las palabras de falla (fuga, rotura, sin freno, humo…), el riesgo y si el equipo puede operar; usted puede cambiarla. Si queda vacía, se asigna la sugerida al guardar. Llantas: rojo ≤ ${TH.otr[0]} mm (direccional ≤ ${TH.dir[0]} mm), amarillo ≤ ${TH.otr[1]} mm (direccional ≤ ${TH.dir[1]} mm).</p></details>`;
  const draw=()=>{const r=AL.filter(a=>(!+afl||a.l===+afl)&&(!aeq||a.eq===aeq));$('#al').innerHTML=r.length?TB(['Semáforo','Equipo','Origen','Detalle','Acción'],r.map(a=>[dot(a.l),esc(a.eq),a.o,esc(a.det),esc(a.acc)])):'<p>Sin alertas con este filtro ✔</p>'};draw();
  $('#fl').onchange=e=>{afl=e.target.value;draw()};$('#fe').onchange=e=>{aeq=e.target.value;draw()};$('#fc').onclick=()=>csv('alertas',['nivel','eq','o','det','acc'],AL.map(a=>({...a,nivel:LV[a.l][0]})))}
-/* ===== Carga rápida: una sola consulta por pantalla, caché en memoria y en el navegador, actualización en segundo plano ===== */
-const FRESH=45000,DK='igc_mant_datos',SKEL='<div class=sk style="width:40%;height:22px"></div><div class=sk></div><div class=sk></div><div class=sk style="width:80%"></div><div class=sk></div>';
-let TS={},HS={},INF={},PQ=[],PT=null,WT={},BGQ=new Set(),BGT=null,SVT=null,PFD=false;
-const hashOf=L=>JSON.stringify(L,(k,v)=>k==='_row'?undefined:v),ALLE=()=>Object.keys(S||{}).filter(e=>e!=='Usuarios'&&e!=='Auditoria');
-function bulk(es,force){es=[...new Set(es)].filter(Boolean);if(!es.length)return Promise.resolve(false);
- const p=call0('bulk','',{ents:es,force:!!force}).then(o=>{let ch=false;o=o||{};
-  es.forEach(e=>{const prev=D[e],L=Array.isArray(o[e])?o[e]:(prev||[]),h=hashOf(L);if(prev&&HS[e]!==undefined&&h!==HS[e])ch=true;D[e]=L;HS[e]=h;TS[e]=Date.now()});saveCache();return ch})
-  .finally(()=>{es.forEach(e=>{if(INF[e]===p)delete INF[e]})});es.forEach(e=>INF[e]=p);return p}
-function load(e){const force=false;
- if(OFF)return call('list',e).then(r=>(D[e]=r),()=>(D[e]=[]));
- if(!force&&!D[e]&&INF[e])return INF[e].then(()=>D[e]||[],()=>(D[e]=D[e]||[]));
- if(!force&&D[e]){if(Date.now()-(TS[e]||0)>=FRESH)bgRefresh([e]);return Promise.resolve(D[e])}
- return new Promise(res=>{(WT[e]=WT[e]||[]).push(res);PQ.push(e);clearTimeout(PT);PT=setTimeout(flushQ,10)})}
-async function flushQ(){const es=[...new Set(PQ)];PQ=[];try{await bulk(es,false)}catch(x){es.forEach(e=>{if(!D[e])D[e]=[]});msg('No se pudo cargar del servidor: '+(x&&x.message||x),1)}
- es.forEach(e=>{(WT[e]||[]).splice(0).forEach(r=>r(D[e]||[]))})}
-function bgRefresh(es){es.forEach(e=>BGQ.add(e));clearTimeout(BGT);BGT=setTimeout(async()=>{const q=[...BGQ];BGQ.clear();try{if(await bulk(q,false))repaint()}catch(x){}},250)}
-function afterWrite(a,e,d,r){try{const L=D[e]||(D[e]=[]);if(a==='save'&&r&&r.id){const i=L.findIndex(x=>x.id===r.id);if(i>=0)L[i]=r;else L.push(r)}else if(a==='del')D[e]=L.filter(x=>x.id!==d.id);HS[e]=hashOf(D[e]);TS[e]=Date.now()}catch(x){}
- bgRefresh(e==='Ordenes'?[e,'Novedades']:[e]);saveCache()}
-async function repaint(){if(GOING)return;const dl=$('#dlg');if(dl&&dl.open)return;const a=document.activeElement,mn=$('#main');if(a&&mn&&mn.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))return;if(!cur||!$('#app')||$('#app').hidden)return;
- const q=$('#q'),qv=q?q.value:'',sy=window.scrollY;window.__quiet=1;await go(...cur);const q2=$('#q');if(qv&&q2){q2.value=qv;q2.dispatchEvent(new Event('input'))}window.scrollTo(0,sy)}
-function saveCache(){clearTimeout(SVT);SVT=setTimeout(()=>{try{if(OFF||!U)return;const o={};Object.keys(D).forEach(e=>{if(e!=='Usuarios'&&e!=='Auditoria'&&Array.isArray(D[e]))o[e]=D[e]});const t=JSON.stringify({u:U.u,c:CNX.url,t:Date.now(),D:o});if(t.length<4.5e6)localStorage.setItem(DK,t);else localStorage.removeItem(DK)}catch(e){try{localStorage.removeItem(DK)}catch(x){}}},1500)}
-function hidratar(){if(OFF||!U)return;try{const s=JSON.parse(localStorage.getItem(DK)||'null');if(s&&s.u===U.u&&s.c===CNX.url&&s.D)Object.keys(s.D).forEach(e=>{if(!D[e]){D[e]=s.D[e];TS[e]=0;HS[e]=hashOf(D[e])}})}catch(e){}}
-function olvidarDatos(){try{localStorage.removeItem(DK)}catch(e){}D={};TS={};HS={};INF={};PFD=false}
-function prefetchRest(){if(PFD||OFF||!S||!U)return;PFD=true;setTimeout(()=>{const miss=ALLE().filter(e=>!D[e]||Date.now()-(TS[e]||0)>=FRESH);bulk(miss,false).then(ch=>{if(ch)repaint()}).catch(()=>{})},500)}
-async function refrescarTodo(){const b=$('#ref');if(b){b.disabled=true;b.textContent='Actualizando…'}
- try{const es=Object.keys(D).filter(e=>Array.isArray(D[e])&&e!=='Usuarios'&&e!=='Auditoria');await bulk(es,true);msg('Datos actualizados desde Google Sheets')}catch(x){msg('No se pudo actualizar: '+(x&&x.message||x),1)}
- if(b){b.disabled=false;b.textContent='↻ Actualizar'}window.__quiet=1;go(...cur)}
-
+const load=async e=>{try{D[e]=await call('list',e)}catch(x){D[e]=[]}return D[e]};
 const msg=(t,bad)=>{const m=$('#msg');m.textContent=t;m.className=bad?'bad':'ok';m.hidden=false;setTimeout(()=>m.hidden=true,4500)};
 async function offLogin(){const e=$('#lerr');try{if(await sha($('#u').value.trim()+'|'+$('#p').value)!==HASH)return e.textContent='Usuario o contraseña incorrectos';}catch(x){return e.textContent='Este navegador no permite validar sin conexión: '+x.message}
  OFF=true;S=S0;U={u:'egutierrez',nombre:'E. Gutierrez',rol:'Administrador'};seedOff();document.body.classList.remove('out');$('#lg').hidden=true;$('#app').hidden=false;$('#who').textContent=U.nombre+' · SIN CONEXIÓN (los datos NO se guardan)';menu();go('cc')}
@@ -220,12 +176,9 @@ function doLogin(){const e=$('#lerr');e.textContent='Ingresando…';
  google.script.run.withSuccessHandler(r=>{done=true;clearTimeout(tm);try{if(!r)return e.textContent='El servidor no respondió.';if(!r.ok)return e.textContent=r.error;T=r.token;U=r.user;S=Object.assign({},NEWS,r.schema);window.srvMiss=!(r.schema&&r.schema.Uso&&r.schema.Servicios);window.srvMissP=!(r.schema&&r.schema.Preop&&r.schema.Vencimientos);document.body.classList.remove('out');$('#lg').hidden=true;$('#app').hidden=false;$('#who').textContent=U.nombre+' · '+U.rol;menu();go('cc')}catch(x){e.textContent='Error en la interfaz: '+x.message}})
  .withFailureHandler(x=>{done=true;clearTimeout(tm);e.innerHTML='Error del servidor: '+esc(x&&x.message||x)+'. <a href="#" onclick="offLogin();return false">Entrar sin conexión</a>'}).login($('#u').value.trim(),$('#p').value)}
 const M=[['Inicio','home'],['Dashboard gerencial','dash'],['Alertas y criticidad','alert'],['Flota','ent','Tractocamiones'],['Tráileres','ent','Traileres'],['Hojas de vida','hv'],['Mantenimiento preventivo','ent','Plan'],['Aceite, filtros y valvulina','lub'],['Uso Satrack (km y horas)','uso'],['Programas y protocolos','prog'],['Mantenimiento correctivo','ent','Ordenes','open'],['Novedades','ent','Novedades'],['Órdenes de trabajo','ent','Ordenes'],['Llantas','tires'],['Inventario','ent','Inventario'],['Compras','ent','Compras'],['Inspecciones','ent','Inspecciones'],['Calendario','cal'],['Costos e indicadores','cost'],['Documentos','ent','Documentos'],['Configuración','cfg']];
-const menu=()=>{hidratar();$('#nav').innerHTML=M.map((m,i)=>`<a data-i="${i}">${m[0]}</a>`).join('');$('#nav').onclick=e=>{const i=e.target.dataset.i;if(i!=null)go(...M[i].slice(1))}};
-let GOING=false,PEND=null;
-async function go(v,e,f){if(GOING){PEND=[v,e,f];cur=[v,e,f];document.querySelectorAll('nav a').forEach((a,i)=>a.classList.toggle('on',M[i][1]===v&&M[i][2]===e&&M[i][3]===f));return}
- GOING=true;try{await go0(v,e,f)}finally{GOING=false;if(PEND){const p=PEND;PEND=null;go(...p)}}}
-async function go0(v,e,f){cur=[v,e,f];document.querySelectorAll('nav a').forEach((a,i)=>a.classList.toggle('on',M[i][1]===v&&M[i][2]===e&&M[i][3]===f));const m=$('#main'),q0=window.__quiet;window.__quiet=0;const before=m.innerHTML,lt=setTimeout(()=>{if(!q0&&m.innerHTML===before)m.innerHTML=SKEL},180);
- try{await Promise.all(['Tractocamiones','Traileres','Plan','Novedades','Ordenes','Llantas','Servicios','Uso','Preop','Vencimientos'].map(load));if(v==='cc')await ccView(m);else if(v==='pre')await prePage(m);else if(v==='col')colPage(m);else if(v==='forms')await formsPage(m);else if(v==='ent'&&e==='Novedades')await novPage(m);else if(v==='home')await home(m);else if(v==='ent')await list(e,m,f==='open'?r=>!['Cerrada','Cancelada','Rechazada'].includes(r.estado):null);else if(v==='hv')await hv(m);else if(v==='tires')await tires(m);else if(v==='prog')prog(m);else if(v==='alert')await alertView(m);else if(v==='dash')await dash(m);else if(v==='uso')await uso(m);else if(v==='lub')await lub(m);else if(v==='cal')await cal(m);else if(v==='cost')await cost(m);else cfg(m)}catch(x){m.innerHTML='<p class=b>Error: '+esc(x)+'</p>'}finally{clearTimeout(lt);prefetchRest()}}
+const menu=()=>{$('#nav').innerHTML=M.map((m,i)=>`<a data-i="${i}">${m[0]}</a>`).join('');$('#nav').onclick=e=>{const i=e.target.dataset.i;if(i!=null)go(...M[i].slice(1))}};
+async function go(v,e,f){cur=[v,e,f];document.querySelectorAll('nav a').forEach((a,i)=>a.classList.toggle('on',M[i][1]===v&&M[i][2]===e&&M[i][3]===f));const m=$('#main');m.innerHTML='Cargando…';
+ try{await Promise.all(['Preop','Vencimientos'].map(load));if(v==='cc')await ccView(m);else if(v==='pre')await prePage(m);else if(v==='col')colPage(m);else if(v==='forms')await formsPage(m);else if(v==='ent'&&e==='Novedades')await novPage(m);else if(v==='home')await home(m);else if(v==='ent')await list(e,m,f==='open'?r=>!['Cerrada','Cancelada','Rechazada'].includes(r.estado):null);else if(v==='hv')await hv(m);else if(v==='tires')await tires(m);else if(v==='prog')prog(m);else if(v==='alert')await alertView(m);else if(v==='dash')await dash(m);else if(v==='uso')await uso(m);else if(v==='lub')await lub(m);else if(v==='cal')await cal(m);else if(v==='cost')await cost(m);else cfg(m)}catch(x){m.innerHTML='<p class=b>Error: '+esc(x)+'</p>'}}
 const COLS=e=>S[e].map(c=>{const[n,o]=c.split('|');return{n,o:o&&o.split('/')}}).filter(c=>c.n!=='hash');
 const kind=n=>/fecha|inicio|^fin$|entrega/.test(n)?'date':/^(km|horas|costo|valor|iva|cantidad|existencia|minimo|intervalo|ultimo_valor|prof|presion|ejes|n_llantas)/.test(n)?'number':/descripcion|detalle|actividades|diagnostico|obs|notas|requisito|repuestos|resultado|validacion/.test(n)?'textarea':'text';
 const bd=(n,v)=>{const c=/^P1$|Vencido|Inmoviliz|No conforme/.test(v)?'r':/^P2$/.test(v)?'o':/^P3$|Próximo|Sin datos|Pendiente/.test(v)?'y':/^P4$|^Operativo|Al día|^Conforme|Cerrada|Instalada/.test(v)?'g':'';return ['prioridad','estado','st','resultado'].includes(n)&&v?`<span class="b ${c}">${/^P[1-4]$/.test(v)&&n==='prioridad'?esc(v)+' '+LV[+v[1]][0]:esc(v)}</span>`:esc(v)};
@@ -247,76 +200,8 @@ function due(){const t=Date.now(),eq=eqs();return (D.Plan||[]).filter(p=>!LUBRE.
 async function home(m){await Promise.all(['Tractocamiones','Traileres','Plan','Novedades','Ordenes','Inventario','Llantas','Servicios','Uso'].map(load));const du=due(),AL=alertsAll(),op=D.Ordenes.filter(o=>!['Cerrada','Cancelada','Rechazada'].includes(o.estado)),fl=D.Tractocamiones,okc=fl.filter(x=>/^Operativo/.test(x.estado)).length;
  const C=(t,v,c='')=>`<div class="card ${c}"><b>${v}</b>${t}</div>`;
  m.innerHTML=`<h3>Tablero</h3><div class=cards>${C('Alertas críticas · rojo',AL.filter(a=>a.l===1).length,'r')}${C('Alertas altas · naranja',AL.filter(a=>a.l===2).length,'o')}${C('Tractocamiones operativos',okc+' / '+fl.length,'g')}${C('Inmovilizados',fl.filter(x=>x.estado==='Inmovilizado por seguridad').length,'r')}${C('Mantenimientos vencidos',du.filter(x=>x.st==='Vencido').length,'r')}${C('Mantenimientos próximos',du.filter(x=>x.st==='Próximo').length,'y')}${C('Novedades P1 abiertas',D.Novedades.filter(n=>n.prioridad==='P1'&&n.estado!=='Cerrada').length,'r')}${C('Órdenes abiertas',op.length)}${C('Repuestos ≤ stock mínimo',D.Inventario.filter(i=>+i.existencia<=+i.minimo&&i.minimo!=='').length,'y')}${C('Llantas instaladas',D.Llantas.filter(l=>l.estado==='Instalada').length)}${C('Disponibilidad (operativos/total)',fl.length?Math.round(okc/fl.length*100)+'%':'—','g')}${C('Costo OT (total)','$'+D.Ordenes.reduce((s,o)=>s+(+o.costo_repuestos||0)+(+o.costo_mano_obra||0)+(+o.costo_externo||0),0).toLocaleString('es-CO'))}</div><p><button onclick="go('alert')">Ver semáforo de alertas por equipo</button></p><p>Alertas preventivas con datos: ${du.filter(x=>x.st!=='Sin datos').length} · sin lectura: ${du.filter(x=>x.st==='Sin datos').length}. Actualice km_actual y últimas intervenciones para calcular vencimientos.</p>`}
-/* ===== Calendario de mantenimiento (mes · año · agenda) ===== */
-const CALX={v:'mes',y:null,m:null,sel:null,eq:'',f:{prev:1,lub:1,ot:1,doc:1,done:0}};
-const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'],DSEM=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],DSEML=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-const IC={prev:'🔧',lub:'🛢️',ot:'📋',doc:'📄',done:'✔️'},KN={prev:'Preventivo',lub:'Lubricación',ot:'Orden de trabajo',doc:'Documento',done:'Realizado'};
-const pad2=n=>String(n).padStart(2,'0'),evCls=e=>e.k==='ot'?'ot':e.k==='done'?'dn':'l'+(e.lv||5),lvB=l=>l===1?'r':l===2?'o':l===3?'y':l===4?'g':'';
-function etaLub(rk,rh,av){if((rk!=null&&rk<=0)||(rh!=null&&rh<=0))return{late:1};if(!av)return{};const d=[];if(rk!=null&&av.km>0)d.push(rk/av.km);if(rh!=null&&av.h>0)d.push(rh/av.h);if(!d.length)return{};return{date:addDays(today(),Math.max(0,Math.floor(Math.min(...d))))}}
-function calEvents(){const ev=[],T0=today(),P=o=>ev.push(o);
- due().forEach(x=>{if(x.st==='Sin datos')return;const late=x.st==='Vencido';P({k:'prev',eq:x.equipo,t:x.actividad,date:x.f||'',lv:x.lv,st:x.st,det:x.det,ent:'Plan',id:x.id,late:late&&!x.f?1:0,vencido:late})});
- (D.Tractocamiones||[]).forEach(q=>{let R;try{R=lubOne(q.codigo)}catch(e){return}const av=avgUse(q.codigo);
-  if(R.ac&&R.ac.st!=='Sin datos'){const z=etaLub(R.ac.rk,R.ac.rh,av);P({k:'lub',eq:q.codigo,t:'Cambio de aceite y filtros de motor',date:z.date||'',lv:lvS(R.ac.st),st:R.ac.st,det:R.ac.when,late:z.late?1:0,vencido:/Vencido|Excedido/.test(R.ac.st)})}
-  if(R.air){P({k:'lub',eq:q.codigo,t:'Filtro de aire (cada 2 cambios de aceite o 6 meses)',date:R.air.due6,lv:lvS(R.air.st),st:R.air.st,det:R.air.n+' cambio(s) de aceite y '+R.air.mo+' meses desde el último',vencido:R.air.st==='Vencido'})}
-  (R.val||[]).forEach(v=>{if(v.st==='Sin datos')return;const z=etaLub(v.rk,null,av);P({k:'lub',eq:q.codigo,t:'Valvulina · '+v.label,date:z.date||'',lv:Math.max(2,lvS(v.st)>=4?4:lvS(v.st)),st:v.st,det:v.when,late:z.late?1:0,vencido:/Vencido|Excedido/.test(v.st)})})});
- (D.Ordenes||[]).forEach(o=>{const cerr=['Cerrada'].includes(o.estado),canc=['Cancelada','Rechazada','Suspendida'].includes(o.estado);
-  if(canc)return;const t=(o.componente?o.componente+' · ':'')+(o.actividades||o.diagnostico||'Orden de trabajo').slice(0,80);
-  if(cerr){const d=(o.fecha_cierre||o.fecha||'').slice(0,10);if(d)P({k:'done',eq:o.equipo,t:'OT cerrada · '+t,date:d,st:'Cerrada',det:o.resultado||'',ent:'Ordenes',id:o.id});return}
-  const d=(o.fecha||'').slice(0,10),atr=d&&d<T0;P({k:'ot',eq:o.equipo,t,date:d,st:atr?'Atrasada · '+o.estado:o.estado,det:[o.prioridad,o.responsable,o.taller].filter(Boolean).join(' · '),ent:'Ordenes',id:o.id,lv:5,late:!d?1:0,vencido:atr})});
- (D.Vencimientos||[]).forEach(r=>{const d=(r.fecha_vencimiento||'').slice(0,10);if(!d)return;const n=daysBetween(T0,d),lv=n<0?1:n<=15?2:n<=30?3:4;
-  P({k:'doc',eq:r.equipo,t:r.documento||'Documento',date:d,lv,st:n<0?'Vencido hace '+(-n)+' día(s)':n===0?'Vence hoy':'Vence en '+n+' día(s)',det:[r.entidad,r.numero].filter(Boolean).join(' · '),ent:'Vencimientos',id:r.id,vencido:n<0})});
- (D.Servicios||[]).forEach(s=>{const d=(s.fecha||'').slice(0,10);if(d)P({k:'done',eq:s.equipo,t:s.tipo||'Servicio',date:d,st:'Realizado',det:[s.producto,s.responsable].filter(Boolean).join(' · '),ent:'Servicios',id:s.id})});
- return ev}
-async function cal(m){await Promise.all(['Tractocamiones','Traileres','Plan','Ordenes','Uso','Servicios','Vencimientos'].map(load));
- const T0=today();if(CALX.y==null){const p=T0.split('-');CALX.y=+p[0];CALX.m=+p[1]-1;CALX.sel=T0}
- const ALL=calEvents(),codes=eqs().map(e=>e.codigo);let VIS=[];
- m.innerHTML=`<h3>Calendario de mantenimiento</h3><div id=calroot>
- <div class=calbar><button id=cprev class=s title="Anterior">‹</button><button id=choy class=s>Hoy</button><button id=cnext class=s title="Siguiente">›</button><b class=ctitle id=ctit></b>
- <span class=seg id=cseg><button data-v=mes>Mes</button><button data-v=anio>Año</button><button data-v=agenda>Agenda</button></span>
- <select id=ceq><option value="">Todos los equipos</option>${codes.map(c=>`<option ${c===CALX.eq?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
- <div class=calflt>${[['prev','🔧 Preventivos'],['lub','🛢️ Aceite y valvulinas'],['ot','📋 Órdenes de trabajo'],['doc','📄 Vencimientos de documentos'],['done','✔️ Ya realizados']].map(([k,t])=>`<label><input type=checkbox data-k=${k} ${CALX.f[k]?'checked':''}> ${t}</label>`).join('')}</div>
- <div class=cards id=ccnt></div><div id=cbody></div><div class=ldg><span><i style="background:#c62828"></i>Vencido / crítico</span><span><i style="background:#ef6c00"></i>Alto (≤ 15 días)</span><span><i style="background:#f9a825"></i>Próximo (≤ 30 días)</span><span><i style="background:#2e7d32"></i>Al día</span><span><i style="background:#1565c0"></i>Orden de trabajo</span><span><i style="background:#cfd8dc"></i>Realizado</span></div><div id=cdet class=cdet></div></div>`;
- const root=$('#calroot'),vis=()=>ALL.filter(e=>CALX.f[e.k]&&(!CALX.eq||e.eq===CALX.eq)),byDay=L=>{const o={};L.forEach(e=>{if(e.date)(o[e.date]=o[e.date]||[]).push(e)});Object.values(o).forEach(a=>a.sort((a,b)=>(a.k==='ot'?3:a.k==='done'?9:a.lv||5)-(b.k==='ot'?3:b.k==='done'?9:b.lv||5)));return o};
- const chip=e=>{const i=VIS.indexOf(e);return `<div class="ce ${evCls(e)}" title="${esc(e.eq+' · '+e.t+' · '+e.st)}">${IC[e.k]} ${esc(e.eq)} · ${esc(e.t)}</div>`};
- const evRow=(e,showDate)=>{const i=VIS.indexOf(e),b=e.k==='ot'?(e.vencido?'r':'y'):e.k==='done'?'':lvB(e.lv);
-  return `<div class=evr><span class=ic>${IC[e.k]}</span><div class=bd><b>${esc(e.eq||'—')}</b> · ${esc(e.t)} <span class="b ${b}">${esc(e.st||KN[e.k])}</span><br><small>${showDate&&e.date?fmtD(e.date)+' · ':''}${KN[e.k]}${e.det?' · '+esc(e.det):''}</small></div><div class=acts style="margin:0">${e.ent?`<button class=s data-open=${i}>Abrir</button>`:''}${canW()&&(e.k==='prev'||e.k==='lub'||e.k==='doc')?`<button data-prog=${i}>Programar OT</button>`:''}</div></div>`};
- const draw=()=>{VIS=vis();const by=byDay(VIS),sel=CALX.sel,y=CALX.y,mo=CALX.m;
-  [...root.querySelectorAll('#cseg button')].forEach(b=>b.classList.toggle('on',b.dataset.v===CALX.v));
-  $('#ctit').textContent=CALX.v==='mes'?MESES[mo]+' '+y:CALX.v==='anio'?'Año '+y:'Próximas programaciones';
-  const lateAll=VIS.filter(e=>e.vencido||e.late),und=VIS.filter(e=>!e.date&&!e.late),n30=VIS.filter(e=>e.date&&e.date>=T0&&e.date<=addDays(T0,30)&&e.k!=='done').length;
-  $('#ccnt').innerHTML=`<div class="card r"><b>${lateAll.length}</b>Vencidos o atrasados</div><div class="card y"><b>${n30}</b>En los próximos 30 días</div><div class="card"><b>${VIS.filter(e=>e.k==='ot'&&e.date&&e.date>=T0).length}</b>Órdenes programadas</div><div class="card"><b>${und.length}</b>Sin fecha calculable</div>`;
-  let h='';
-  if(CALX.v==='mes'){const first=ymd0(y,mo,1),dow=(new Date(first+'T00:00:00Z').getUTCDay()+6)%7,nd=new Date(Date.UTC(y,mo+1,0)).getUTCDate(),tot=Math.ceil((dow+nd)/7)*7,st=addDays(first,-dow);
-   h='<div class=cgrid>'+DSEM.map(d=>`<div class=cgh>${d}</div>`).join('');
-   for(let i=0;i<tot;i++){const ds=addDays(st,i),L=by[ds]||[],inm=ds.slice(0,7)===y+'-'+pad2(mo+1);
-    h+=`<div class="cd ${inm?'':'out'} ${ds===T0?'hoy':''} ${ds===sel?'sel':''}" data-d="${ds}"><span class=dn>${+ds.slice(8)}</span>${L.slice(0,3).map(chip).join('')}${L.length>3?`<div class=cmore>+${L.length-3} más</div>`:''}</div>`}
-   h+='</div>'}
-  else if(CALX.v==='anio'){h='<div class=yg>'+MESES.map((nm,k)=>{const first=ymd0(y,k,1),dow=(new Date(first+'T00:00:00Z').getUTCDay()+6)%7,nd=new Date(Date.UTC(y,k+1,0)).getUTCDate();
-    let c=DSEM.map(d=>`<i>${d[0]}</i>`).join('');for(let i=0;i<dow;i++)c+='<span></span>';
-    for(let d=1;d<=nd;d++){const ds=ymd0(y,k,d),L=by[ds]||[],w=L.length?(L.some(e=>e.k!=='ot'&&e.k!=='done'&&e.lv)?'l'+Math.min(...L.filter(e=>e.k!=='ot'&&e.k!=='done'&&e.lv).map(e=>e.lv)):L.some(e=>e.k==='ot')?'ot':'dn'):'';
-     c+=`<span class="yd ${w} ${ds===T0?'hoy':''} ${ds===sel?'sel':''}" data-d="${ds}" title="${L.length?L.length+' programación(es)':''}">${d}</span>`}
-    return `<div class=ym><h5 data-mes=${k}>${nm} ${L0(by,y,k)}</h5><div class=ymg>${c}</div></div>`}).join('')+'</div>'}
-  else{const fut=VIS.filter(e=>e.date&&!e.vencido&&e.date>=T0&&e.date<=addDays(T0,90)&&e.k!=='done').sort((a,b)=>a.date.localeCompare(b.date)),grp={};fut.forEach(e=>(grp[e.date]=grp[e.date]||[]).push(e));
-   const lt=VIS.filter(e=>e.vencido||e.late).sort((a,b)=>(a.lv||1)-(b.lv||1)||(a.date||'').localeCompare(b.date||''));
-   h=`<div class=cdet style="margin-top:0"><h4 style="margin:0 0 6px">⛔ Vencidos y atrasados (${lt.length})</h4>${lt.map(e=>evRow(e,1)).join('')||'<p>Nada vencido ✔</p>'}</div>
-   <div class=cdet><h4 style="margin:0 0 6px">📅 Próximos 90 días (${fut.length})</h4>${Object.keys(grp).sort().map(d=>`<div style="margin:8px 0 2px;font-weight:700;color:var(--p)">${DSEML[new Date(d+'T00:00:00Z').getUTCDay()]} ${fmtD(d)}${d===T0?' · hoy':''}</div>${grp[d].map(e=>evRow(e)).join('')}`).join('')||'<p>No hay programaciones en este rango.</p>'}</div>
-   <div class=cdet><h4 style="margin:0 0 6px">❔ Sin fecha calculable (${und.length})</h4><p><small>Faltan lecturas de km/horas o informes de uso para estimar la fecha.</small></p>${und.map(e=>evRow(e)).join('')||'<p>Todas tienen fecha ✔</p>'}</div>`}
-  $('#cbody').innerHTML=h;
-  if(CALX.v==='agenda'){$('#cdet').hidden=true}else{$('#cdet').hidden=false;const L=by[sel]||[];
-   $('#cdet').innerHTML=`<h4 style="margin:0 0 6px">${sel?DSEML[new Date(sel+'T00:00:00Z').getUTCDay()]+' '+fmtD(sel):'Seleccione un día'}${sel===T0?' · hoy':''}</h4>${sel?(L.map(e=>evRow(e)).join('')||'<p>Sin programaciones este día.</p>'):'<p>Pulse un día del calendario para ver el detalle.</p>'}${sel&&canW()?`<div class=acts><button id=cnew>＋ Programar orden de trabajo este día</button></div>`:''}`}};
- const L0=(by,y,k)=>{const n=Object.keys(by).filter(d=>d.slice(0,7)===y+'-'+pad2(k+1)).reduce((s,d)=>s+by[d].length,0);return n?`<small style="color:var(--mut);font-weight:400">· ${n}</small>`:''};
- const mv=n=>{if(CALX.v==='anio')CALX.y+=n;else{CALX.m+=n;if(CALX.m<0){CALX.m=11;CALX.y--}if(CALX.m>11){CALX.m=0;CALX.y++}}draw()};
- root.onclick=e=>{const t=e.target,c=t.closest('[data-d]'),b=t.closest('[data-open],[data-prog],[data-mes],[data-v]');
-  if(t.id==='cprev')return mv(-1);if(t.id==='cnext')return mv(1);if(t.id==='choy'){const p=T0.split('-');CALX.y=+p[0];CALX.m=+p[1]-1;CALX.sel=T0;return draw()}
-  if(t.id==='cnew')return edit('Ordenes',null,true,{fecha:CALX.sel||T0,estado:'Programada'});
-  if(b&&b.dataset.v){CALX.v=b.dataset.v;return draw()}
-  if(b&&b.dataset.mes!=null){CALX.m=+b.dataset.mes;CALX.v='mes';return draw()}
-  if(b&&b.dataset.open!=null){const e=VIS[+b.dataset.open],r=e&&(D[e.ent]||[]).find(x=>x.id===e.id);if(r)edit(e.ent,r,canW());return}
-  if(b&&b.dataset.prog!=null){const e=VIS[+b.dataset.prog];if(e)edit('Ordenes',null,true,{equipo:e.eq,fecha:CALX.sel&&CALX.sel>=T0?CALX.sel:(e.date&&e.date>=T0?e.date:T0),actividades:e.t,estado:'Programada'});return}
-  if(c){CALX.sel=c.dataset.d;if(CALX.v==='anio'){const p=CALX.sel.split('-');CALX.m=+p[1]-1}draw();const d=$('#cdet');if(d&&CALX.v==='anio')d.scrollIntoView({behavior:'smooth',block:'nearest'})}};
- $('#ceq').onchange=e=>{CALX.eq=e.target.value;draw()};root.querySelectorAll('[data-k]').forEach(i=>i.onchange=()=>{CALX.f[i.dataset.k]=i.checked?1:0;draw()});draw()}
-const ymd0=(y,m,d)=>y+'-'+pad2(m+1)+'-'+pad2(d);
-
+async function cal(m){await Promise.all(['Tractocamiones','Traileres','Plan','Ordenes','Uso'].map(load));const du=due().sort((a,b)=>a.lv-b.lv);
+ m.innerHTML=`<h3>Calendario / próximas intervenciones</h3><div class=tw><table><tr><th>Equipo<th>Actividad<th>Semáforo / estado<th>Clase<th>Detalle<th>Fuente</tr>${du.map(x=>`<tr><td>${esc(x.equipo)}<td>${esc(x.actividad)}<td>${dot(x.lv,'')} ${bd('st',x.st)}<td>${CL[x.cl]}<td>${esc(x.det)}<td>${esc(x.tipo_fuente)} ${x.estado==='Pendiente validacion'?'(pendiente validación)':''}`).join('')}</table></div><h4>Órdenes programadas / en ejecución</h4><div class=tw><table><tr><th>OT<th>Equipo<th>Fecha<th>Estado<th>Responsable<th>Taller</tr>${D.Ordenes.filter(o=>['Programada','En ejecucion','En prueba'].includes(o.estado)).map(o=>`<tr><td>${o.id}<td>${esc(o.equipo)}<td>${o.fecha}<td>${o.estado}<td>${esc(o.responsable)}<td>${esc(o.taller)}`).join('')}</table></div>`}
 async function cost(m){await Promise.all(['Tractocamiones','Traileres','Ordenes','Llantas'].map(load));const f=o=>(+o.costo_repuestos||0)+(+o.costo_mano_obra||0)+(+o.costo_externo||0),$$=n=>'$'+Math.round(n).toLocaleString('es-CO');
  m.innerHTML=`<h3>Costos por equipo (fuente: órdenes de trabajo registradas)</h3><div class=tw><table><tr><th>Equipo<th>OT<th>Repuestos<th>Mano de obra<th>Externos<th>Total<th>Rango km en OT<th>Costo/km</tr>${eqs().map(e=>{const os=D.Ordenes.filter(o=>o.equipo===e.codigo),ks=os.map(o=>+o.km).filter(Boolean),rg=ks.length>1?Math.max(...ks)-Math.min(...ks):0,t=os.reduce((s,o)=>s+f(o),0);return `<tr><td>${e.codigo}<td>${os.length}<td>${$$(os.reduce((s,o)=>s+(+o.costo_repuestos||0),0))}<td>${$$(os.reduce((s,o)=>s+(+o.costo_mano_obra||0),0))}<td>${$$(os.reduce((s,o)=>s+(+o.costo_externo||0),0))}<td>${$$(t)}<td>${rg||'—'}<td>${rg?$$(t/rg):'—'}`}).join('')}</table></div><p>Costo/km = costo total OT ÷ (km máx − km mín registrados en OT del equipo). Costo de llantas/km: costo de compra ÷ km recorridos (requiere km_inicial y movimientos).</p>`}
 const LAY={T:[['Direccional',2],['Motriz 1',4],['Motriz 2',4]],R:[['Eje 1',4],['Eje 2',4],['Eje 3',4]]};
@@ -702,7 +587,7 @@ async function novPage(m){await Promise.all(['Tractocamiones','Traileres','Noved
  $('#nt').onclick=e=>{const d=e.target.dataset;if(d.o)edit('Novedades',N.find(x=>x.id===d.o),canW());else if(d.t)crearOT(N.find(x=>x.id===d.t))};if($('#nn'))$('#nn').onclick=()=>edit('Novedades',null,true,{fecha:today(),origen:'Manual'});
  $('#nx').onclick=()=>csv('novedades',COLS('Novedades').map(c=>c.n),rows());
  clearInterval(window.nTim);window.nTim=setInterval(async()=>{if(OFF||document.hidden||cur[0]!=='ent'||cur[1]!=='Novedades'||document.querySelector('dialog[open]')){if(cur[0]!=='ent'||cur[1]!=='Novedades')clearInterval(window.nTim);return}
-  try{const a=await call('list','Novedades');if(hashOf(a)!==hashOf(D.Novedades)){D.Novedades=a;HS.Novedades=hashOf(a);TS.Novedades=Date.now();novPage($('#main'));msg('Novedades actualizadas automáticamente')}}catch(x){}},60000)}
+  try{const a=await call('list','Novedades');if(JSON.stringify(a)!==JSON.stringify(D.Novedades)){D.Novedades=a;novPage($('#main'));msg('Novedades actualizadas automáticamente')}}catch(x){}},60000)}
 const FORMS_URL='https://docs.google.com/forms/d/1AkFNUC5ozdCPyCsFUFXtT_cq3eBaZNQJnz2PkMMilnQ/edit';
 async function formsPage(m){m.innerHTML='<h3>Conexiones: Google Sheets y Google Forms</h3><div id=fp>Comprobando…</div>';await load('Novedades');
  const adm=U.rol==='Administrador',ops=adm||U.rol==='Mantenimiento';let st=null,db=null,er='';
@@ -763,12 +648,12 @@ function bannerServidorViejo(){if($('#vieja'))return;const b=document.createElem
 /* --- sesión sin límite de tiempo: el navegador recuerda el ingreso hasta que usted pulse «Salir» --- */
 const SK='igc_mant_ses';
 function guardarSesion(schema){try{localStorage.setItem(SK,JSON.stringify({t:T,u:U,s:schema,c:CNX.url}))}catch(e){}}
-function cerrarSesion(){try{localStorage.removeItem(SK)}catch(e){}olvidarDatos();location.reload()}
-function sesionPerdida(m){try{localStorage.removeItem(SK)}catch(e){}olvidarDatos();if(window.__sp)return;window.__sp=1;T=null;$('#app').hidden=true;$('#lg').hidden=false;document.body.classList.add('out');$('#lerr').textContent=String(m||'Sesión inválida.').replace(/[.\s]*Ingrese de nuevo[.\s]*$/i,'').trim()+'. Ingrese de nuevo.';setTimeout(()=>{window.__sp=0},1500)}
+function cerrarSesion(){try{localStorage.removeItem(SK)}catch(e){}location.reload()}
+function sesionPerdida(m){try{localStorage.removeItem(SK)}catch(e){}if(window.__sp)return;window.__sp=1;T=null;$('#app').hidden=true;$('#lg').hidden=false;document.body.classList.add('out');$('#lerr').textContent=String(m||'Sesión inválida.').replace(/[.\s]*Ingrese de nuevo[.\s]*$/i,'').trim()+'. Ingrese de nuevo.';setTimeout(()=>{window.__sp=0},1500)}
 function restaurarSesion(){try{const s=JSON.parse(localStorage.getItem(SK)||'null');if(!s||!s.t||!s.u||s.c!==CNX.url||!cnxValida(CNX))return false;
  T=s.t;U=s.u;S=Object.assign({},NEWS,s.s||{});window.srvMiss=!(S.Uso&&S.Servicios);window.srvMissP=!(S.Preop&&S.Vencimientos);
  document.body.classList.remove('out');$('#lg').hidden=true;$('#app').hidden=false;$('#who').textContent=U.nombre+' · '+U.rol;menu();go('cc');
- setTimeout(()=>{call0('schema','Auditoria').then(sc=>{S=Object.assign({},NEWS,sc)},()=>{});cloud('ping',{},null,20000).then(r=>{if(r.sesion!=='firmada')bannerServidorViejo()},()=>{})},5000);return true}catch(e){return false}}
+ call('schema','Auditoria').then(sc=>{S=Object.assign({},NEWS,sc)},()=>{});cloud('ping',{},null,20000).then(r=>{if(r.sesion!=='firmada')bannerServidorViejo()},()=>{});return true}catch(e){return false}}
 async function doLogin(){const e=$('#lerr');
  if(!cnxValida(CNX)){e.innerHTML='Primero configure la conexión con Google Sheets. <a href="#" onclick="cnxAbrir();return false">Configurar conexión</a> · <a href="#" onclick="offLogin();return false">Entrar sin conexión</a>';return}
  e.textContent='Ingresando…';
