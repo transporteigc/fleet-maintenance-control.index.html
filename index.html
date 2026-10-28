@@ -641,21 +641,24 @@ async function cloud(action,payload,cfg,ms){cfg=cfg||CNX;const ctl=new AbortCont
  if(!j.ok)throw new CloudErr(j.error||'Error','APP',{resp:j});return j}
 const cnxMask=u=>String(u||'').replace(/\/s\/([A-Za-z0-9_-]{6})[A-Za-z0-9_-]*([A-Za-z0-9_-]{4})\//,'/s/$1…$2/');
 function cnxEstadoLogin(){const e=$('#cnxst');if(e)e.textContent=cnxValida(CNX)?'Conexión configurada ('+cnxMask(CNX.url)+')':'Sin conexión configurada'}
+/* Si el Apps Script publicado es una versión anterior, sus sesiones siguen venciendo: se avisa con una barra visible */
+function bannerServidorViejo(){if($('#vieja'))return;const b=document.createElement('div');b.id='vieja';b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c62828;color:#fff;padding:10px 14px;font-size:13px;line-height:1.4';
+ b.innerHTML='⚠ <b>El servidor de Apps Script es una versión anterior</b>: las sesiones seguirán venciendo. En Apps Script pegue el Code.gs nuevo y cree una <b>NUEVA VERSIÓN</b> de la implementación (Implementar → Administrar implementaciones → ✏ → Versión: Nueva versión → Implementar). <button type="button" onclick="this.parentNode.remove()" style="margin-left:8px;padding:2px 8px">Entendido</button>';document.body.appendChild(b)}
 /* --- sesión sin límite de tiempo: el navegador recuerda el ingreso hasta que usted pulse «Salir» --- */
 const SK='igc_mant_ses';
 function guardarSesion(schema){try{localStorage.setItem(SK,JSON.stringify({t:T,u:U,s:schema,c:CNX.url}))}catch(e){}}
 function cerrarSesion(){try{localStorage.removeItem(SK)}catch(e){}location.reload()}
-function sesionPerdida(m){try{localStorage.removeItem(SK)}catch(e){}if(window.__sp)return;window.__sp=1;T=null;$('#app').hidden=true;$('#lg').hidden=false;document.body.classList.add('out');$('#lerr').textContent=String(m||'Sesión inválida.')+' Ingrese de nuevo.';setTimeout(()=>{window.__sp=0},1500)}
+function sesionPerdida(m){try{localStorage.removeItem(SK)}catch(e){}if(window.__sp)return;window.__sp=1;T=null;$('#app').hidden=true;$('#lg').hidden=false;document.body.classList.add('out');$('#lerr').textContent=String(m||'Sesión inválida.').replace(/[.\s]*Ingrese de nuevo[.\s]*$/i,'').trim()+'. Ingrese de nuevo.';setTimeout(()=>{window.__sp=0},1500)}
 function restaurarSesion(){try{const s=JSON.parse(localStorage.getItem(SK)||'null');if(!s||!s.t||!s.u||s.c!==CNX.url||!cnxValida(CNX))return false;
  T=s.t;U=s.u;S=Object.assign({},NEWS,s.s||{});window.srvMiss=!(S.Uso&&S.Servicios);window.srvMissP=!(S.Preop&&S.Vencimientos);
  document.body.classList.remove('out');$('#lg').hidden=true;$('#app').hidden=false;$('#who').textContent=U.nombre+' · '+U.rol;menu();go('cc');
- call('schema','Auditoria').then(sc=>{S=Object.assign({},NEWS,sc)},()=>{});return true}catch(e){return false}}
+ call('schema','Auditoria').then(sc=>{S=Object.assign({},NEWS,sc)},()=>{});cloud('ping',{},null,20000).then(r=>{if(r.sesion!=='firmada')bannerServidorViejo()},()=>{});return true}catch(e){return false}}
 async function doLogin(){const e=$('#lerr');
  if(!cnxValida(CNX)){e.innerHTML='Primero configure la conexión con Google Sheets. <a href="#" onclick="cnxAbrir();return false">Configurar conexión</a> · <a href="#" onclick="offLogin();return false">Entrar sin conexión</a>';return}
  e.textContent='Ingresando…';
  try{const r=await cloud('login',{u:$('#u').value.trim(),p:$('#p').value},null,45000);
   T=r.token;U=r.user;S=Object.assign({},NEWS,r.schema);window.srvMiss=!(r.schema&&r.schema.Uso&&r.schema.Servicios);window.srvMissP=!(r.schema&&r.schema.Preop&&r.schema.Vencimientos);
-  document.body.classList.remove('out');$('#lg').hidden=true;$('#app').hidden=false;$('#who').textContent=U.nombre+' · '+U.rol;menu();go('cc');guardarSesion(r.schema);
+  document.body.classList.remove('out');$('#lg').hidden=true;$('#app').hidden=false;$('#who').textContent=U.nombre+' · '+U.rol;menu();go('cc');guardarSesion(r.schema);if(r.sesion!=='firmada')bannerServidorViejo();
   if(cnxOrigen){msg('Conexión configurada automáticamente ('+(cnxOrigen==='enlace'?'enlace':'archivo')+')');cnxOrigen=''}}
  catch(x){const m=x&&x.message||String(x);e.innerHTML=esc(m)+(x.code==='APP'?'':' · <a href="#" onclick="cnxDiag();return false">Diagnosticar conexión</a>')+' · <a href="#" onclick="cnxAbrir();return false">Conexión</a> · <a href="#" onclick="offLogin();return false">Entrar sin conexión</a>'}}
 /* --- ventana de conexión --- */
@@ -668,7 +671,7 @@ function cnxAbrir(){const d=$('#dlg');
  const leer=()=>({url:$('#cx-url').value.trim(),token:$('#cx-tok').value.trim()});
  $('#cx-ok').onclick=async()=>{const c=leer();if(!cnxValida(c)){$('#cx-out').innerHTML='<span class=bad>La URL debe ser https://script.google.com/…/exec y el token no puede estar vacío.</span>';return}
   CNX=c;try{localStorage.setItem(CK,JSON.stringify(c))}catch(e){}cnxEstadoLogin();$('#cx-out').textContent='Probando…';
-  try{await cloud('ping',{},c,25000);$('#cx-out').innerHTML='✔ Conexión correcta: el servidor respondió y aceptó el token. Ya puede iniciar sesión.'}catch(x){$('#cx-out').innerHTML='<span class=bad>✖ '+esc(x.message)+'</span> — pulse «Diagnosticar».'}};
+  try{const pr=await cloud('ping',{},c,25000);$('#cx-out').innerHTML='✔ Conexión correcta: el servidor respondió y aceptó el token. Ya puede iniciar sesión.'+(pr.sesion==='firmada'?'':' <br><span class=bad>⚠ El servidor es una versión anterior (las sesiones vencen): cree una NUEVA VERSIÓN de la implementación con el Code.gs nuevo.</span>')}catch(x){$('#cx-out').innerHTML='<span class=bad>✖ '+esc(x.message)+'</span> — pulse «Diagnosticar».'}};
  $('#cx-dx').onclick=()=>{const c=leer();if(c.url||c.token){CNX=c;try{localStorage.setItem(CK,JSON.stringify(c))}catch(e){}}cnxDiag()}}
 /* --- diagnóstico --- */
 function dxUrl(u){
@@ -697,7 +700,7 @@ async function cnxDiag(){const d=$('#dlg'),R=[],ico={ok:'✔',warn:'⚠',crit:'�
  add('ok','Acceso a Google','Alcanzable','');nota='Comprobando la implementación…';paint();const s=await dxReach(url,15000);
  add(s.ok?'ok':'crit','La implementación responde',s.ok?'El servidor contestó en '+s.ms+' ms':'No hay respuesta ('+s.err+')',s.ok?'':'Revise que la URL esté completa y que la implementación no haya sido eliminada.');
  nota='Enviando consulta de prueba al script…';paint();
- try{await cloud('ping',{},null,25000);add('ok','Consulta de prueba (POST)','El script respondió y aceptó el token','')}
+ try{const pr=await cloud('ping',{},null,25000);add('ok','Consulta de prueba (POST)','El script respondió y aceptó el token','');add(pr.sesion==='firmada'?'ok':'crit','Versión del servidor (sesiones)',pr.sesion==='firmada'?'Actual: las sesiones no caducan':'Versión anterior: las sesiones vencen a las pocas horas','Pegue el Code.gs nuevo y cree una NUEVA VERSIÓN de la implementación (Implementar → Administrar implementaciones → ✏ → Nueva versión).')}
  catch(e){const m=e.message||String(e);
   if(e.code==='APP')add('crit','Consulta de prueba (POST)','El script respondió: «'+m+'»',/token/i.test(m)?'El token no coincide con APP_TOKEN (Apps Script → Configuración del proyecto → Propiedades del script). Copie el valor exacto que muestra configurar().':'Revise Ejecuciones en el editor de Apps Script.');
   else if(e.code==='HTML'){const h=(e.extra.html||'')+' '+(e.extra.title||'');add('crit','Consulta de prueba (POST)',/sign.?in|iniciar sesi|accounts\.google/i.test(h)?'Google pide iniciar sesión: la implementación no es pública':m,/sign.?in|iniciar sesi|accounts\.google/i.test(h)?'En Administrar implementaciones → ✏ → «Quién tiene acceso»: Cualquier persona; luego Nueva versión → Implementar.':'Falta doPost o la implementación quedó con una versión antigua: cree una «Nueva versión».')}
