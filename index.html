@@ -624,6 +624,7 @@ async function formsPage(m){m.innerHTML='<h3>Conexiones: Google Sheets y Google 
 const CK='igc_mant_cloud';
 /* CONEXIÓN INCRUSTADA: la completa «Generar copia con conexión incluida». Con ella el archivo se conecta solo en cualquier equipo. Contiene el token: manténgalo privado. */
 const CONEXION_FIJA={"url":"","token":""};
+const TOKEN_SUGERIDO='IGC56f21a70b7b781debe3e6d78695a'; /* mismo valor de TOKEN_INICIAL en Code.gs */
 let CNX={};try{CNX=JSON.parse(localStorage.getItem(CK)||'{}')}catch(e){}
 let cnxOrigen='';
 const cnxValida=c=>!!(c&&/^https:\/\/script\.google\.com\/.+\/exec$/.test(String(c.url||'').trim())&&String(c.token||'').trim());
@@ -664,7 +665,7 @@ async function doLogin(){const e=$('#lerr');
 /* --- ventana de conexión --- */
 function cnxAbrir(){const d=$('#dlg');
  d.innerHTML=`<h3 style="margin-top:0">Conexión con Google Sheets (Apps Script)</h3><p class="lgd">Pegue la <b>URL de la aplicación web</b> (termina en /exec) y el <b>token de acceso</b> (APP_TOKEN) que muestra la función <b>configurar()</b> en Apps Script. También puede pegar un <b>enlace o código de conexión</b>.</p>
- <label>Enlace o código de conexión (opcional)</label><input id="cx-code" placeholder="…#cfg=…"><label>URL de la aplicación web</label><input id="cx-url" value="${esc(CNX.url||'')}" placeholder="https://script.google.com/macros/s/…/exec"><label>Token de acceso (APP_TOKEN)</label><input id="cx-tok" type="password" value="${esc(CNX.token||'')}">
+ <label>Enlace o código de conexión (opcional)</label><input id="cx-code" placeholder="…#cfg=…"><label>URL de la aplicación web</label><input id="cx-url" value="${esc(CNX.url||'')}" placeholder="https://script.google.com/macros/s/…/exec"><label>Token de acceso (APP_TOKEN)</label><input id="cx-tok" type="password" value="${esc(CNX.token||TOKEN_SUGERIDO)}">
  <div class="bar" style="margin-top:10px"><button id="cx-ok" type="button">Guardar y probar</button><button class="s" id="cx-dx" type="button">🩺 Diagnosticar</button><button class="s" id="cx-x" type="button">Cerrar</button></div><div id="cx-out" class="lgd"></div>`;
  d.showModal();$('#cx-x').onclick=()=>d.close();
  $('#cx-code').oninput=e=>{const c=cnxLeer(e.target.value);if(c){$('#cx-url').value=c.url;$('#cx-tok').value=c.token;$('#cx-out').textContent='Código reconocido: pulse «Guardar y probar».'}};
@@ -702,7 +703,7 @@ async function cnxDiag(){const d=$('#dlg'),R=[],ico={ok:'✔',warn:'⚠',crit:'�
  nota='Enviando consulta de prueba al script…';paint();
  try{const pr=await cloud('ping',{},null,25000);add('ok','Consulta de prueba (POST)','El script respondió y aceptó el token','');add(pr.sesion==='firmada'?'ok':'crit','Versión del servidor (sesiones)',pr.sesion==='firmada'?'Actual: las sesiones no caducan':'Versión anterior: las sesiones vencen a las pocas horas','Pegue el Code.gs nuevo y cree una NUEVA VERSIÓN de la implementación (Implementar → Administrar implementaciones → ✏ → Nueva versión).')}
  catch(e){const m=e.message||String(e);
-  if(e.code==='APP')add('crit','Consulta de prueba (POST)','El script respondió: «'+m+'»',/token/i.test(m)?'El token no coincide con APP_TOKEN (Apps Script → Configuración del proyecto → Propiedades del script). Copie el valor exacto que muestra configurar().':'Revise Ejecuciones en el editor de Apps Script.');
+  if(e.code==='APP')add('crit','Consulta de prueba (POST)','El script respondió: «'+m+'»',/no tiene APP_TOKEN/i.test(m)?'El Code.gs desplegado es una versión anterior: pegue el Code.gs nuevo y cree una NUEVA VERSIÓN de la implementación (Implementar → Administrar implementaciones → ✏ → Nueva versión). Como alternativa, ejecute configurar() una vez.':/token/i.test(m)?'El token no coincide con APP_TOKEN (Apps Script → Configuración del proyecto → Propiedades del script). Copie el valor exacto que muestra configurar().':'Revise Ejecuciones en el editor de Apps Script.');
   else if(e.code==='HTML'){const h=(e.extra.html||'')+' '+(e.extra.title||'');add('crit','Consulta de prueba (POST)',/sign.?in|iniciar sesi|accounts\.google/i.test(h)?'Google pide iniciar sesión: la implementación no es pública':m,/sign.?in|iniciar sesi|accounts\.google/i.test(h)?'En Administrar implementaciones → ✏ → «Quién tiene acceso»: Cualquier persona; luego Nueva versión → Implementar.':'Falta doPost o la implementación quedó con una versión antigua: cree una «Nueva versión».')}
   else if(e.code==='TIMEOUT')add('warn','Consulta de prueba (POST)',m,'El primer arranque de Apps Script puede tardar; repita el diagnóstico.');
   else add('crit','Consulta de prueba (POST)','El navegador no pudo leer la respuesta ('+m+')','Causas: (1) «Quién tiene acceso» no es «Cualquier persona»; (2) falta una Nueva versión de la implementación; (3) extensión o antivirus que bloquea; (4) cuenta Workspace que impide acceso público. Abra la URL en incógnito: si pide iniciar sesión, es la causa (1).')}}
