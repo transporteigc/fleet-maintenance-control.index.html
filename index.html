@@ -681,7 +681,7 @@ async function formsPage(m){m.innerHTML='<h3>Conexiones: Google Sheets y Google 
  * No hay que pegarlo en Apps Script. El token (APP_TOKEN) abre el servicio; cada persona además inicia sesión con su usuario. */
 const CK='igc_mant_cloud';
 /* CONEXIÓN INCRUSTADA: la completa «Generar copia con conexión incluida». Con ella el archivo se conecta solo en cualquier equipo. Contiene el token: manténgalo privado. */
-const CONEXION_FIJA={"url":"","token":""};
+const CONEXION_FIJA={"url":"https://script.google.com/macros/s/AKfycbwrbWsJz9CvHYQUZZvIXdv8RpgkiCZlUNLcG7UbWMPYRYmz-ruu7Ax5eqgoHmAy-6WN/exec","token":"IGC56f21a70b7b781debe3e6d78695a"};
 const TOKEN_SUGERIDO='IGC56f21a70b7b781debe3e6d78695a'; /* mismo valor de TOKEN_INICIAL en Code.gs */
 let CNX={};try{CNX=JSON.parse(localStorage.getItem(CK)||'{}')}catch(e){}
 let cnxOrigen='';
