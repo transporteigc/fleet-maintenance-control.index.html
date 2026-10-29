@@ -287,11 +287,11 @@ function diag(c){const L=id=>D.Llantas.find(x=>x.id===id);
  return `<div class=eqb><div class=eqt>${esc(c)} · ${isTr(c)?'Tractocamión':'Tráiler'}</div>`+axes(c).map(a=>{const n=a.pos.length,h=n/2;return `<div class=ax><b>${a.ax}</b>${a.pos.slice(0,h).map(box).join('')}<span style="width:30px;border-top:3px solid #455"></span>${a.pos.slice(h).map(box).join('')}</div>`}).join('')+`<div class=ax><b>Repuesto</b>${box('Repuesto-1')}</div></div>`}
 const legend=()=>`<p class=lgd><span class="t-s ok"></span> Buena · <span class="t-s w"></span> Atención (≤ ${TH.otr[1]} mm; direccional ≤ ${TH.dir[1]}) · <span class="t-s x"></span> Cambiar (≤ ${TH.otr[0]} mm; direccional ≤ ${TH.dir[0]}) · sin color: sin profundidad registrada. Umbrales iniciales ajustables (referencia RTM 1,6 mm).</p>`;
 async function tires(m,tab){RS=null;await Promise.all(['Tractocamiones','Traileres','Llantas','MovLlantas','Plan','Compras'].map(load));tab=tab||window.ltab||'rot';window.ltab=tab;
- const TS=[['rot','Taller de rotaciones'],['diag','Diagrama y retiro'],['compra','Nueva compra'],['hist','Historial de movimientos'],['inv','Inventario de llantas']];
+ const TS=[['rot','Taller de rotaciones'],['diag','Diagrama y retiro'],['compra','Nueva compra'],['hist','Historial de movimientos'],['rend','Rendimiento por km'],['inv','Inventario de llantas']];
  m.innerHTML=`<h3>Llantas</h3><div class=bar id=ltb>${TS.map(t=>`<button class="${t[0]===tab?'':'s'}" data-t="${t[0]}">${t[1]}</button>`).join('')}</div><div id=lb></div>`;
  $('#ltb').onclick=e=>{if(e.target.dataset.t){if(tab==='rot')RS=null;tires(m,e.target.dataset.t)}};const b=$('#lb');
  if(!eqs().length){b.innerHTML='<p>Primero registre tractocamiones y tráileres (Configuración → Importar datos, o Flota).</p>';return}
- if(tab==='rot')rotView(b);else if(tab==='diag')diagView(b);else if(tab==='compra')buyView(b);else if(tab==='hist')histView(b);else await list('Llantas',b)}
+ if(tab==='rot')rotView(b);else if(tab==='diag')diagView(b);else if(tab==='compra')buyView(b);else if(tab==='hist')histView(b);else if(tab==='rend')await rendView(b);else await list('Llantas',b)}
 function diagView(b){const cs=eqs().map(e=>e.codigo);window.dq=cs.includes(window.dq)?window.dq:cs[0];RS=rsInit(dq);
  b.innerHTML=`<div class=bar>${optSel('dsel',cs,dq)}</div><div class=dgs>${diag(dq)}</div>${legend()}<small>Clic en un puesto: instalar una llanta de bodega, retirarla (a bodega, taller, reencauche o baja) o ver su hoja de vida.</small>`;
  $('#dsel').onchange=e=>{dq=e.target.value;diagView(b)};b.querySelector('.dgs').onclick=e=>{const t=e.target.closest('.t');if(t)slot(t.dataset.k.split('|')[1],dq)}}
@@ -370,9 +370,9 @@ function histView(b){const ms=[...D.MovLlantas].sort((a,c)=>(c.fecha||'').locale
  $('#hx').onclick=()=>csv('movimientos_llantas',['fecha','llanta','tipo','origen','destino','km','prof','obs','responsable'],rowsF().map(m=>({...m,tipo:tipoOf(m)[0],obs:tipoOf(m)[1]})))}
 function tireKm(l){const ms=D.MovLlantas.filter(m=>m.llanta===l.codigo).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')),dep=m=>{const x=/km origen (\d+)/.exec(m.motivo||'');return x?+x[1]:m.km===''?NaN:+m.km};let tot=0,ok=false;
  for(let i=0;i<ms.length-1;i++){const a=ms[i],c=ms[i+1],ea=(a.destino||'').split('/')[0];if(ea&&ea!=='Bodega'&&ea===(c.origen||'').split('/')[0]&&a.km!==''&&!isNaN(dep(c))&&dep(c)>=+a.km){tot+=dep(c)-+a.km;ok=true}}return ok?tot:null}
-function tireInfo(code){const l=D.Llantas.find(x=>x.codigo===code),d=$('#dlg');if(!l)return msg('Llanta no encontrada',1);const ms=D.MovLlantas.filter(m=>m.llanta===code),k=tireKm(l);
+function tireInfo(code){const l=D.Llantas.find(x=>x.codigo===code),d=$('#dlg');if(!l)return msg('Llanta no encontrada',1);const ms=D.MovLlantas.filter(m=>m.llanta===code),k=tireStats(l).km;
  d.innerHTML=`<h3>Hoja de vida · ${esc(code)}</h3><p>${esc(l.marca)} ${esc(l.modelo)} ${esc(l.medida)} · DOT ${esc(l.dot||'—')} · compra ${esc(l.fecha_compra||'—')} ${l.proveedor?'· '+esc(l.proveedor):''}</p><p>Estado: <b>${esc(l.estado)}</b> ${l.equipo?'en '+esc(l.equipo)+' / '+esc(l.posicion):''} · Profundidad: ${esc(l.prof_actual||'—')} mm (inicial ${esc(l.prof_inicial||'—')}) · Reencauches: ${esc(l.reencauches||0)}</p>
- <p>Km recorridos registrados: <b>${k==null?'sin datos suficientes':k.toLocaleString('es-CO')}</b> ${k&&+l.costo?'· Costo por km: <b>$'+(+l.costo/k).toFixed(2)+'</b>':''}</p>${ms.length?TB(['Fecha','Tipo','Origen → destino','km','mm'],ms.map(m=>[m.fecha,esc(tipoOf(m)[0]),esc(m.origen)+' → '+esc(m.destino),esc(m.km),esc(m.prof)])):'<p>Sin movimientos.</p>'}<div class=bar style="margin-top:10px"><button class=s id=cx>Cerrar</button></div>`;d.showModal();$('#cx').onclick=()=>d.close()}
+ <p>Km recorridos registrados: <b>${k==null?'sin datos suficientes':k.toLocaleString('es-CO')}</b> ${k&&+l.costo?'· Costo por km: <b>$'+(+l.costo/k).toFixed(2)+'</b>':''}</p>${tireSegHtml(l)}${ms.length?TB(['Fecha','Tipo','Origen → destino','km','mm'],ms.map(m=>[m.fecha,esc(tipoOf(m)[0]),esc(m.origen)+' → '+esc(m.destino),esc(m.km),esc(m.prof)])):'<p>Sin movimientos.</p>'}<div class=bar style="margin-top:10px"><button class=s id=cx>Cerrar</button></div>`;d.showModal();$('#cx').onclick=()=>d.close()}
 
 // ===================== USO SATRACK, LUBRICACIÓN Y DASHBOARD =====================
 const LUBRE=/^(Cambio de aceite|Valvulina|Cambio de filtro de aire|Filtro aire$)/;
@@ -899,6 +899,54 @@ function inspCarga(b,m){b.innerHTML=`<details open><summary><b>¿Qué se carga?<
 
 /* ---- el menú «Inspecciones» abre esta página en lugar de la lista genérica ---- */
 const __go0=go;go=async function(v,e,f){if(v==='ent'&&e==='Inspecciones'){cur=[v,e,f];document.querySelectorAll('nav a').forEach((a,i)=>a.classList.toggle('on',M[i][1]===v&&M[i][2]===e&&M[i][3]===f));const m=$('#main');m.innerHTML='Cargando';try{await inspPage(m)}catch(x){m.innerHTML='<p class=b>Error: '+esc(x&&x.message||x)+'</p>'}return}return __go0(v,e,f)};
+
+
+/* ===== IGC v4 · Llantas: rendimiento por kilómetros, marca y posición =====
+   Se calcula solo con lo ya registrado (Llantas + MovLlantas): cada llanta se parte en «tramos» (equipo + puesto) entre
+   dos movimientos; km del tramo = km del equipo al salir − km del equipo al entrar. El tramo en curso de un tractocamión
+   usa el odómetro estimado (preoperacional + Satrack). No requiere cambios en Code.gs. */
+const pnum=v=>v===''||v==null||isNaN(+v)?null:+v;
+function tireSegs(l){const eqc=new Set(eqs().map(e=>e.codigo)),sp=s=>{const a=String(s||'').split('/');return{e:a[0],p:a.slice(1).join('/')}},
+ ms=D.MovLlantas.map((m,i)=>({m,i})).filter(x=>x.m.llanta===l.codigo).sort((a,b)=>(a.m.fecha||'').localeCompare(b.m.fecha||'')||a.i-b.i).map(x=>x.m),S=[];let cur=null;
+ const fin=s=>{s.ok=s.km0!=null&&s.km1!=null&&s.km1>=s.km0;s.w=!!(s.ok&&!s.open&&s.km1>s.km0&&s.p0!=null&&s.p1!=null&&s.p0>s.p1);return s};
+ for(const m of ms){const o=sp(m.origen),d=sp(m.destino),x=/km origen (\d+)/.exec(m.motivo||''),kd=pnum(m.km),pr=pnum(m.prof);
+  if(cur&&o.e===cur.eq){cur.km1=x?+x[1]:(d.e===o.e||!eqc.has(d.e)?kd:null);cur.p1=pr;cur.f1=m.fecha;S.push(fin(cur));cur=null}
+  else if(cur&&eqc.has(d.e)){S.push(fin(cur));cur=null}
+  if(eqc.has(d.e)&&!/^Repuesto/i.test(d.p||''))cur={eq:d.e,pos:d.p,km0:kd,p0:pr,f0:m.fecha,km1:null,p1:null,f1:'',open:false}}
+ if(cur){const on=l.estado==='Instalada'&&l.equipo===cur.eq;if(on){cur.open=true;const E=isTr(cur.eq)?(()=>{try{return estEq(cur.eq)}catch(e){return null}})():null;cur.km1=E&&E.km!=null?E.km:null}S.push(fin(cur))}
+ else if(!ms.length&&l.estado==='Instalada'&&eqc.has(l.equipo)&&pnum(l.km_inicial)!=null){const E=isTr(l.equipo)?(()=>{try{return estEq(l.equipo)}catch(e){return null}})():null;S.push(fin({eq:l.equipo,pos:l.posicion,km0:pnum(l.km_inicial),p0:pnum(l.prof_inicial),f0:l.fecha_compra||'',km1:E&&E.km!=null?E.km:null,p1:null,f1:'',open:true}))}
+ return S}
+function tireStats(l,eqf){const S=tireSegs(l).filter(s=>!eqf||s.eq===eqf);let km=0,kmw=0,mm=0,no=0,nk=0;
+ S.forEach(s=>{if(s.ok){nk++;km+=s.km1-s.km0;if(s.w){kmw+=s.km1-s.km0;mm+=s.p0-s.p1}}else no++});
+ const kmmm=mm>0&&kmw>0?kmw/mm:null,pi=pnum(l.prof_inicial),last=S[S.length-1],lim=last&&/^Direccional/.test(last.pos)?TH.dir[0]:TH.otr[0],proj=kmmm&&pi!=null&&pi>lim?kmmm*(pi-lim):null;
+ return{S,km:nk?km:null,kmw,mm,kmmm,proj,unk:no,lim}}
+const posGrp=(eq,pos,ex)=>(isTr(eq)?'':'Tráiler · ')+(ex?String(pos||''):String(pos||'').replace(/-[^-]+$/,''));
+const POSORD=[...LAY.T.map(a=>a[0]),...LAY.R.map(a=>'Tráiler · '+a[0])],posIdx=g=>{const i=POSORD.findIndex(p=>g===p||g.startsWith(p+'-'));return i<0?99:i};
+function tireSegHtml(l){const S=tireSegs(l);if(!S.length)return'';
+ return'<h4>Tramos por puesto</h4>'+TB(['Equipo','Puesto','Desde','Hasta','km entrada','km salida','Km del tramo','mm (entrada → salida)','Km por mm'],S.map(s=>[esc(s.eq),esc(s.pos),fmtD(String(s.f0||'').slice(0,10)),s.open?'<span class="b g">en curso</span>':fmtD(String(s.f1||'').slice(0,10)),s.km0==null?'—':fmt(s.km0),s.km1==null?'—':fmt(s.km1),s.ok?fmt(s.km1-s.km0):'<span class="b y">sin km</span>',s.p0!=null&&s.p1!=null?s.p0+' → '+s.p1:'—',s.w?fmt((s.km1-s.km0)/(s.p0-s.p1)):'—']))}
+
+async function rendView(b){await Promise.all(['Uso','Preop'].map(load));
+ const P=window.rdp=window.rdp||{eq:'',es:'',gk:'marca',gp:'eje',mt:'kmmm'},cs=eqs().map(e=>e.codigo),sel=(id,o,v)=>`<select id=${id}>${o.map(([k,t])=>`<option value="${k}" ${k===v?'selected':''}>${t}</option>`).join('')}</select>`;
+ b.innerHTML=`<p><small>Rendimiento = kilómetros recorridos por cada llanta en cada puesto, a partir de los movimientos registrados (compra, instalación, rotación y retiro, con el <b>km del equipo</b>). El tramo en curso de un tractocamión usa su odómetro estimado. «Km por mm» mide cuántos km rinde cada milímetro de banda gastado (solo tramos con profundidad medida al entrar y al salir).</small></p>
+ <div class=bar>${sel('rq',[['','Todos los equipos'],...cs.map(c=>[c,c])],P.eq)}${sel('rs',[['','Instaladas y retiradas'],['I','Solo instaladas'],['O','Solo retiradas / bodega']],P.es)}${sel('rk',[['marca','Agrupar por marca'],['modelo','Agrupar por marca y modelo']],P.gk)}${sel('rp',[['eje','Posición por eje'],['puesto','Posición por puesto exacto']],P.gp)}${sel('rm',[['kmmm','Matriz: km por mm'],['km','Matriz: km acumulados'],['ckm','Matriz: costo por km']],P.mt)}<button class=s id=rx>Exportar CSV</button></div><div id=rb></div>`;
+ const draw=()=>{const rows=[],tr=[],ex=P.gp==='puesto';
+  D.Llantas.forEach(l=>{if(P.es==='I'&&l.estado!=='Instalada')return;if(P.es==='O'&&l.estado==='Instalada')return;const sa=tireStats(l),st=P.eq?tireStats(l,P.eq):sa;if(P.eq&&!st.S.length)return;tr.push({l,st});
+   const key=(String(l.marca||'').trim()||'Sin marca')+(P.gk==='modelo'&&String(l.modelo||'').trim()?' '+String(l.modelo).trim():'');
+   st.S.forEach(s=>{if(!s.ok)return;const k=s.km1-s.km0;rows.push({l,key,grp:posGrp(s.eq,s.pos,ex),km:k,kmw:s.w?k:0,mm:s.w?s.p0-s.p1:0,cost:sa.km>0?(+l.costo||0)*k/sa.km:0})})});
+  const agg=r=>{const t=new Set(r.map(x=>x.l.id)),km=r.reduce((s,x)=>s+x.km,0),kmw=r.reduce((s,x)=>s+x.kmw,0),mm=r.reduce((s,x)=>s+x.mm,0),c=r.reduce((s,x)=>s+x.cost,0);return{n:t.size,km,mm,kmmm:mm>0?kmw/mm:null,ckm:km>0&&c>0?c/km:null}};
+  const keys=[...new Set(rows.map(r=>r.key))],A=agg(rows),sinKm=tr.filter(x=>x.st.km==null).length,sinUnk=tr.filter(x=>x.st.unk>0).length;
+  const ag=keys.map(k=>({k,...agg(rows.filter(r=>r.key===k))})).sort((a,c)=>c.km-a.km);
+  const grps=[...new Set(rows.map(r=>r.grp))].sort((a,c)=>posIdx(a)-posIdx(c)||a.localeCompare(c)),mt=P.mt,val=a=>mt==='kmmm'?a.kmmm:mt==='km'?(a.km||null):a.ckm,txt=a=>{const v=val(a);return v==null?'—':mt==='ckm'?'$'+v.toFixed(2):fmt(v)};
+  const mxr=ag.map(a=>[a.k,grps.map(g=>agg(rows.filter(r=>r.key===a.k&&r.grp===g)))]);
+  const best=grps.map((g,j)=>{const v=mxr.map(r=>val(r[1][j])).filter(x=>x!=null);return v.length>1?(mt==='ckm'?Math.min(...v):Math.max(...v)):null});
+  $('#rb').innerHTML=(sinKm?`<div class=wn>⚠ ${sinKm} llanta(s) sin km utilizable. Registre siempre el <b>km del equipo</b> al comprar/instalar, rotar o retirar (campos «km del equipo» y «km actual»). En tráileres, que no tienen odómetro propio, el tramo en curso solo cuenta cuando se registra una rotación o retiro con su km.</div>`:'')+(sinUnk&&!sinKm?`<div class=wn>⚠ ${sinUnk} llanta(s) con algún tramo sin km: el rendimiento solo incluye los tramos con km registrado.</div>`:'')+
+  `<div class=cards><div class=card><small>Llantas con km</small><b>${A.n}</b></div><div class=card><small>Km acumulados</small><b>${fmt(A.km)}</b></div><div class="card g"><small>Km por mm (global)</small><b>${A.kmmm==null?'—':fmt(A.kmmm)}</b></div><div class="card y"><small>Costo por km (global)</small><b>${A.ckm==null?'—':'$'+A.ckm.toFixed(2)}</b></div></div>`+
+  (ag.length?`<h4>Rendimiento por ${P.gk==='modelo'?'marca y modelo':'marca'}</h4>`+TB([P.gk==='modelo'?'Marca y modelo':'Marca','Llantas','Km acumulados','Km por llanta','mm de banda gastados','Km por mm','Costo por km'],ag.map(a=>[esc(a.k),a.n,fmt(a.km),fmt(a.km/a.n),fmt(a.mm),a.kmmm==null?'—':fmt(a.kmmm),a.ckm==null?'—':'$'+a.ckm.toFixed(2)]))+(ag.some(a=>a.kmmm)?'<h4>Km por mm de banda</h4>'+hbar(ag.filter(a=>a.kmmm).map(a=>[a.k.slice(0,18),a.kmmm,'#002e42'])):'')+
+   `<h4>Marca × posición — ${mt==='kmmm'?'km por mm de banda':mt==='km'?'km acumulados':'costo por km'}</h4>`+TB(['Marca'+(P.gk==='modelo'?' y modelo':''),...grps],mxr.map(([k,cells])=>[esc(k),...cells.map((a,j)=>{const v=val(a);return v==null?'—':`<span class="b ${best[j]!=null&&v===best[j]?'g':''}">${txt(a)}</span> <small>${a.n} llanta${a.n===1?'':'s'}</small>`})]))+`<p><small>En verde, la mejor marca en cada posición (cuando hay al menos dos para comparar). ${mt==='ckm'?'Costo por km = costo de compra repartido en proporción a los km de cada tramo.':''}</small></p>`:'<p>Aún no hay tramos con km registrado. Instale o rote llantas registrando el km del equipo (Taller de rotaciones, Diagrama y retiro o Nueva compra).</p>')+
+  (tr.length?'<h4>Rendimiento por llanta</h4>'+TB(['Llanta','Marca','Modelo','Medida','Estado / puesto','Km recorridos','mm gastados','Km por mm','Prof. actual (mm)','Km proyectados al límite','Km restantes (est.)','Costo por km','Reenc.',''],tr.sort((a,c)=>(c.st.km||0)-(a.st.km||0)).map(({l,st})=>{const rest=l.estado==='Instalada'&&st.proj!=null&&st.km!=null?Math.max(0,st.proj-st.km):null;return[esc(l.codigo),esc(l.marca),esc(l.modelo),esc(l.medida),esc(l.estado)+(l.equipo?' · '+esc(l.equipo)+'/'+esc(l.posicion):''),st.km==null?'<span class="b y">sin km</span>':fmt(st.km),st.mm?st.mm.toFixed(1):'—',st.kmmm==null?'—':fmt(st.kmmm),esc(l.prof_actual||'—'),st.proj==null?'—':fmt(st.proj),rest==null?'—':fmt(rest),st.km>0&&+l.costo?'$'+(+l.costo/st.km).toFixed(2):'—',esc(l.reencauches||0),`<button class=s data-c="${esc(l.codigo)}">Hoja de vida</button>`]}))+'<p><small>Km proyectados = km por mm × (profundidad inicial − límite de cambio: '+TH.otr[0]+' mm, direccional '+TH.dir[0]+' mm). Es una estimación: una llanta reencauchada no es comparable con una nueva, y la profundidad debe medirse al rotar o retirar para que el dato sea confiable.</small></p>':'');
+  $('#rb').onclick=e=>{const c=e.target.dataset.c;if(c)tireInfo(c)};
+  $('#rx').onclick=()=>csv('rendimiento_llantas',['llanta','marca','modelo','medida','estado','equipo','puesto','km','mm_gastados','km_por_mm','km_proyectados','costo','costo_por_km'],tr.map(({l,st})=>({llanta:l.codigo,marca:l.marca,modelo:l.modelo,medida:l.medida,estado:l.estado,equipo:l.equipo,puesto:l.posicion,km:st.km==null?'':Math.round(st.km),mm_gastados:st.mm?st.mm.toFixed(1):'',km_por_mm:st.kmmm==null?'':Math.round(st.kmmm),km_proyectados:st.proj==null?'':Math.round(st.proj),costo:l.costo,costo_por_km:st.km>0&&+l.costo?(+l.costo/st.km).toFixed(2):''})))};
+ draw();[['rq','eq'],['rs','es'],['rk','gk'],['rp','gp'],['rm','mt']].forEach(([i,k])=>$('#'+i).onchange=e=>{P[k]=e.target.value;draw()})}
 
 cnxEstadoLogin();
 if(!OFF)restaurarSesion();
