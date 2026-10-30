@@ -643,16 +643,16 @@ const urls=s=>String(s||'').match(/https?:\/\/[^\s,;]+/g)||[];
 const evid=s=>{const u=urls(s);return u.length?u.map((x,i)=>`<a class=lk href="${esc(x)}" target=_blank rel="noopener noreferrer" title="Abrir evidencia (requiere permiso en Drive)">📎${i+1}</a>`).join(' '):'—'};
 function crearOT(n){if(!n)return;const ex=(D.Ordenes||[]).find(o=>o.novedad_id===n.id&&!['Cancelada','Rechazada'].includes(o.estado));
  if(ex){msg('Esta novedad ya tiene la orden '+ex.id+': se abre para gestionarla');return edit('Ordenes',ex,canW())}
- const q=n.tracto||n.trailer,E=estEq(q);edit('Ordenes',null,true,{equipo:q,componente:n.componente,novedad_id:n.id,fecha:today(),km:E&&E.km!=null?Math.round(E.km):n.km||'',diagnostico:n.descripcion,prioridad:n.prioridad,estado:'Reportada'})}
+ const q=n.tracto||n.trailer,E=estEq(q);edit('Ordenes',null,true,Object.assign({equipo:q,componente:n.componente,novedad_id:n.id,fecha:today(),km:E&&E.km!=null?Math.round(E.km):n.km||'',diagnostico:n.descripcion,prioridad:n.prioridad,estado:'Reportada'},iaOTpre(n)))}
 async function novPage(m){await Promise.all(['Tractocamiones','Traileres','Novedades','Ordenes','Servicios','Uso'].map(load));
  const F=window.nf=window.nf||{q:'',pl:'',c:'',d:'',h:'',t:'',p:'',e:'',o:''},N=D.Novedades||[],un=k=>[...new Set(N.map(n=>n[k]).filter(Boolean))].sort(),sel=(id,k,v)=>`<select id=${id}><option value="">${k}</option>${un(id.slice(1)).map(x=>`<option ${x===v?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
  const crit=N.filter(n=>n.estado!=='Cerrada'&&lvlR(n,'N').l===1).length,nuevas=N.filter(n=>n.estado==='Nueva'&&n.origen==='Google Forms').length;
  m.innerHTML=`<h3>Novedades</h3>${crit?`<div class=wn style="background:#fdd;border-color:#c62828">⛔ <b>${crit}</b> novedad(es) crítica(s) (P1) sin cerrar: revisión prioritaria. Recibir un reporte no autoriza la operación del equipo.</div>`:''}${nuevas?`<div class=wn>📥 ${nuevas} reporte(s) de Google Forms están «Nueva»: falta revisarlos.</div>`:''}
  <div class=bar><input id=nq placeholder="Buscar en todo…" value="${esc(F.q)}"><input id=npl placeholder="Placa" value="${esc(F.pl)}" style="max-width:120px"><input id=nc placeholder="Conductor" value="${esc(F.c)}" style="max-width:150px">Desde <input type=date id=nd value="${F.d}" style="max-width:150px"> hasta <input type=date id=nh value="${F.h}" style="max-width:150px"></div>
- <div class=bar>${sel('ntipo','Tipo','')}<select id=np><option value="">Prioridad</option>${['P1','P2','P3','P4'].map(p=>`<option ${p===F.p?'selected':''}>${p}</option>`).join('')}</select><select id=ne><option value="">Estado</option>${['Nueva','En evaluacion','Con OT','Cerrada'].map(p=>`<option ${p===F.e?'selected':''}>${p}</option>`).join('')}</select><select id=no><option value="">Origen</option>${un('origen').map(p=>`<option ${p===F.o?'selected':''}>${esc(p)}</option>`).join('')}</select>${canW()?'<button id=nn>+ Nueva novedad</button>':''}<button class=s id=nx>Exportar CSV</button></div><div id=nt></div>`;
+ <div class=bar>${sel('ntipo','Tipo','')}<select id=np><option value="">Prioridad</option>${['P1','P2','P3','P4'].map(p=>`<option ${p===F.p?'selected':''}>${p}</option>`).join('')}</select><select id=ne><option value="">Estado</option>${['Nueva','En evaluacion','Con OT','Cerrada'].map(p=>`<option ${p===F.e?'selected':''}>${p}</option>`).join('')}</select><select id=no><option value="">Origen</option>${un('origen').map(p=>`<option ${p===F.o?'selected':''}>${esc(p)}</option>`).join('')}</select>${canW()?'<button id=nn>+ Nueva novedad</button>':''}<button class=s id=nx>Exportar CSV</button><button class=s id=nia type=button>🤖 IA</button></div><div id=nt></div>`;
  const rows=()=>N.filter(n=>{const eq=(n.tracto||n.trailer||'').toLowerCase();return(!F.q||JSON.stringify(n).toLowerCase().includes(F.q.toLowerCase()))&&(!F.pl||eq.includes(F.pl.toLowerCase()))&&(!F.c||(n.conductor||'').toLowerCase().includes(F.c.toLowerCase()))&&(!F.d||(n.fecha||'')>=F.d)&&(!F.h||(n.fecha||'')<=F.h)&&(!F.t||n.tipo===F.t)&&(!F.p||n.prioridad===F.p)&&(!F.e||n.estado===F.e)&&(!F.o||n.origen===F.o)}).sort((a,b)=>(lvlR(a,'N').l-lvlR(b,'N').l)||(b.fecha||'').localeCompare(a.fecha||''));
- const draw=()=>{const R=rows();$('#nt').innerHTML=`<p class=lgd>${R.length} de ${N.length} novedades</p>`+TB(['','Fecha','Conductor','Equipo','Tipo · componente','Descripción','Prioridad','Estado','Responsable','Evidencias','Actualizado','Origen',''],R.map(n=>{const ot=(D.Ordenes||[]).find(o=>o.novedad_id===n.id&&!['Cancelada','Rechazada'].includes(o.estado));return[n.estado==='Cerrada'?'':dot(lvlR(n,'N').l),fmtD(n.fecha)+(n.hora?' '+esc(n.hora):''),esc(n.conductor),esc(n.tracto||n.trailer),esc([n.tipo,n.componente].filter(Boolean).join(' · ')),`<span title="${esc(n.descripcion)}">${esc((n.descripcion||'').slice(0,70))}${(n.descripcion||'').length>70?'…':''}</span>`,bd('prioridad',n.prioridad),bd('estado',n.estado),esc(n.responsable)||'<small>sin asignar</small>',evid(n.evidencias),fmtD(String(n.modificado||'').slice(0,10)),n.origen==='Google Forms'?'<span class="b p">Forms</span>':esc(n.origen),`<button class=s data-o="${n.id}">${canW()?'Gestionar':'Ver'}</button>${canW()&&n.estado!=='Cerrada'?` <button data-t="${n.id}">${ot?'Ver OT':'Crear OT'}</button>`:''}`]}))};
- draw();const bind=(id,k)=>$('#'+id).oninput=e=>{F[k]=e.target.value;draw()};bind('nq','q');bind('npl','pl');bind('nc','c');bind('nd','d');bind('nh','h');bind('ntipo','t');bind('np','p');bind('ne','e');bind('no','o');
+ const draw=()=>{const R=rows();$('#nt').innerHTML=`<p class=lgd>${R.length} de ${N.length} novedades</p>`+TB(['','Fecha','Conductor','Equipo','Tipo · componente','Descripción','Prioridad','Estado','Responsable','Evidencias','Actualizado','Origen','🤖 Diagnóstico',''],R.map(n=>{const ot=(D.Ordenes||[]).find(o=>o.novedad_id===n.id&&!['Cancelada','Rechazada'].includes(o.estado));return[n.estado==='Cerrada'?'':dot(lvlR(n,'N').l),fmtD(n.fecha)+(n.hora?' '+esc(n.hora):''),esc(n.conductor),esc(n.tracto||n.trailer),esc([n.tipo,n.componente].filter(Boolean).join(' · ')),`<span title="${esc(n.descripcion)}">${esc((n.descripcion||'').slice(0,70))}${(n.descripcion||'').length>70?'…':''}</span>`,bd('prioridad',n.prioridad),bd('estado',n.estado),esc(n.responsable)||'<small>sin asignar</small>',evid(n.evidencias),fmtD(String(n.modificado||'').slice(0,10)),n.origen==='Google Forms'?'<span class="b p">Forms</span>':esc(n.origen),iaCell(n),`<button class=s data-o="${n.id}">${canW()?'Gestionar':'Ver'}</button>${canW()&&n.estado!=='Cerrada'?` <button data-t="${n.id}">${ot?'Ver OT':'Crear OT'}</button>`:''}`]}))};
+ draw();iaAuto(N);const bind=(id,k)=>$('#'+id).oninput=e=>{F[k]=e.target.value;draw()};bind('nq','q');bind('npl','pl');bind('nc','c');bind('nd','d');bind('nh','h');bind('ntipo','t');bind('np','p');bind('ne','e');bind('no','o');
  $('#nt').onclick=e=>{const d=e.target.dataset;if(d.o)edit('Novedades',N.find(x=>x.id===d.o),canW());else if(d.t)crearOT(N.find(x=>x.id===d.t))};if($('#nn'))$('#nn').onclick=()=>edit('Novedades',null,true,{fecha:today(),origen:'Manual'});
  $('#nx').onclick=()=>csv('novedades',COLS('Novedades').map(c=>c.n),rows());
  clearInterval(window.nTim);window.nTim=setInterval(async()=>{if(OFF||document.hidden||cur[0]!=='ent'||cur[1]!=='Novedades'||document.querySelector('dialog[open]')){if(cur[0]!=='ent'||cur[1]!=='Novedades')clearInterval(window.nTim);return}
@@ -975,4 +975,450 @@ async function rendView(b){await Promise.all(['Uso','Preop'].map(load));
 cnxEstadoLogin();
 if(!OFF)restaurarSesion();
 
-</script></body></html>
+</script>
+<script>
+/* ===== v5 · Diagnóstico automático de novedades: motor experto integrado + IA opcional (Claude) =====
+ * Funciona con las novedades que llegan por Google Forms y con las que se crean a mano.
+ * 1) Motor experto: siempre disponible, sin internet ni costo. Interpreta el reporte, dice qué mantenimiento corresponde
+ *    y qué repuestos cambiar, y los cruza con el Inventario (existencia / falta comprar).
+ * 2) IA (Claude): opcional. Si se configura la llave de la API, analiza el reporte con el historial del equipo, el plan
+ *    preventivo y el inventario. Si la IA falla o no está configurada, se usa el motor experto. */
+(function(){
+const nz=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const E_=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const RK={'Sí':0,'Con restricción':1,'No':2};
+const R=(...a)=>a.map(x=>({n:x[0],c:x[2]||1,t:x[1]||'I'})); /* t: P = probable · I = según inspección */
+
+/* ---------- Base de conocimiento (tractocamión Kenworth / International con Cummins ISX, tráiler volco, llantas) ---------- */
+const KB=[
+{k:'Frenos',re:/fren|zapata|bandas? de fren|tambor|chicharr|no frena|frena (mal|poco|duro)|pedal|campana|ajustador|slack/g,
+ dx:'Falla en el sistema de frenos (zapatas o bandas, tambores, ajustadores o cámaras de freno)',
+ cau:['Zapatas o bandas desgastadas o contaminadas con grasa o aceite','Tambores ovalados, rayados o fisurados','Ajustadores automáticos (slack) desajustados o pegados','Cámaras de freno o diafragmas con fuga','Válvula de freno o carrera de pedal desajustada'],
+ inm:'No despachar hasta que un mecánico revise los frenos. Verificar presión de aire, carrera de las cámaras y espesor de las zapatas.',
+ op:'No',p:1,
+ mt:['Inspección de frenos en todos los ejes (espesor de zapatas, estado de tambores, carrera de cámaras)','Ajuste o cambio de ajustadores automáticos','Cambio de zapatas o bandas y rectificación o cambio de tambores del eje afectado','Prueba de frenado y registro en la hoja de vida'],
+ rep:R(['Juego de bandas / zapatas de freno','P'],['Tambor de freno'],['Ajustador automático de freno (slack adjuster)'],['Cámara de freno / diafragma'],['Kit de reparación de freno (resortes, rodillos, bujes)']),
+ h:'3–6 h por eje',preg:['¿El pedal queda blando, duro o baja hasta el fondo?','¿Hay chillido o raspado al frenar?','¿El camión se va hacia un lado al frenar?','¿Qué presión marca el manómetro de aire?'],
+ prev:'Medir espesor de zapatas en cada preventivo y revisar la carrera de las cámaras.'},
+{k:'Sistema neumático',re:/fuga de aire|se sale el aire|sale aire|silbido|silba|pierde aire|baja presion|presion de aire|compresor|secador|tanque de aire|manguera de aire|valvula de proteccion|bolsas? de aire|tarda en (cargar|recargar)|no sube la presion|no carga el aire|acople rapido|chicote/g,
+ dx:'Fuga o baja presión en el sistema neumático (compresor, secador, líneas, válvulas o bolsas de aire)',
+ cau:['Manguera, racor o acople rápido con fuga','Compresor con bajo rendimiento o válvulas gastadas','Secador de aire saturado o cartucho vencido','Válvula de protección, relé o válvula de pedal con fuga','Bolsa de suspensión rota (si cambia la altura)'],
+ inm:'Sistema de seguridad crítico: no despachar si el aire no alcanza la presión de trabajo o cae con el motor apagado. Ubicar la fuga con agua jabonosa.',
+ op:'No',p:1,
+ mt:['Prueba de estanqueidad (caída de presión en 1 minuto con motor apagado)','Localizar la fuga con agua jabonosa y reparar o cambiar el componente','Drenar los tanques y cambiar el cartucho del secador','Medir el tiempo de carga del compresor (de 85 a 120 psi)'],
+ rep:R(['Manguera y racores de aire'],['Cartucho / kit del secador de aire','P'],['Válvula de protección o relé neumático'],['Kit de reparación del compresor de aire'],['Bolsa de aire de suspensión']),
+ h:'2–5 h',preg:['¿A qué presión se estabiliza el manómetro?','¿El silbido se oye con el motor apagado, con el pedal suelto o pisado?','¿El compresor trabaja todo el tiempo?'],
+ prev:'Drenar tanques a diario y cambiar el cartucho del secador según el plan.'},
+{k:'Hubs y rodamientos',re:/cubo|punta de eje|eje del trailer|rodamiento|balinera|candela|rueda caliente|se calienta la rueda|humo.{0,15}rueda|sello (del )?cubo|retenedor de rueda|tuerca de eje|ruido.{0,15}rueda|zumba|desprend.{0,12}rueda|se solto la rueda/g,
+ dx:'Falla en cubos y rodamientos de rueda (posible calentamiento, juego o fuga de grasa)',
+ cau:['Rodamiento sin grasa o desgastado','Retenedor (sello) del cubo con fuga que contamina los frenos','Tuerca de cubo floja o mal ajustada','Punta de eje desgastada'],
+ inm:'Rueda caliente, humo o ruido metálico: detener y no continuar. Riesgo de desprendimiento de rueda e incendio.',
+ op:'No',p:1,
+ mt:['Revisar el juego axial de las ruedas y la temperatura del cubo','Desarmar el cubo, limpiar e inspeccionar rodamientos y pistas','Cambiar rodamientos y retenedor, engrasar y ajustar con el torque del fabricante','Revisar si los frenos quedaron contaminados con grasa'],
+ rep:R(['Juego de rodamientos del cubo (interno y externo)'],['Retenedor (sello) del cubo','P'],['Grasa para rodamientos','P'],['Tuerca y seguro de eje'],['Zapatas de freno (si se contaminaron)']),
+ h:'2–4 h por rueda',preg:['¿Qué rueda es y desde cuándo hace el ruido?','¿Se sintió caliente o salió humo?','¿Hay grasa regada en el rin o el tambor?'],
+ prev:'Engrase e inspección de cubos según el plan y revisión de temperatura de ruedas en las paradas.'},
+{k:'Dirección',re:/direccion|volante|holgura|rotula|terminal|pitman|cremallera|caja de direccion|bomba de direccion|aceite de direccion|se va hacia|se jala|tira hacia|vibra el volante|volante duro|duro el volante/g,
+ dx:'Falla en la dirección (juego, dureza, fuga hidráulica o vibración)',
+ cau:['Rótulas, terminales o barra de arrastre con juego','Caja o bomba de dirección con fuga o desgaste','Nivel bajo de aceite hidráulico de dirección','Alineación y balanceo incorrectos o llantas desgastadas','Rodamientos de rueda delantera flojos'],
+ inm:'Sistema de seguridad crítico: no despachar con juego excesivo, dureza o fuga en la dirección.',
+ op:'No',p:1,
+ mt:['Medir el juego del volante y revisar rótulas, terminales y brazos','Revisar el nivel y las fugas del sistema hidráulico de dirección','Revisar alineación, balanceo y rodamientos de las ruedas delanteras','Cambiar rótulas o terminales, o reparar la caja'],
+ rep:R(['Rótulas y terminales de dirección'],['Barra de arrastre / brazo pitman'],['Aceite hidráulico de dirección','P'],['Mangueras de alta presión de dirección'],['Kit de reparación de caja o bomba de dirección']),
+ h:'3–8 h',preg:['¿Hay juego en el volante o se pone duro?','¿Vibra a cierta velocidad?','¿Se ven fugas de aceite hidráulico?'],
+ prev:'Revisar juego de rótulas y nivel de aceite hidráulico en cada preventivo.'},
+{k:'Quinta rueda',re:/quinta rueda|quinta|king ?pin|pin rey|acople|acoplamiento|patas|pata de apoyo|aterrizaje|patines|landing|mordaza|seguro de la quinta|no acopla|desacopla/g,
+ dx:'Falla en quinta rueda, king pin o patas de apoyo',
+ cau:['Quinta rueda sin engrase, con mordazas desgastadas o seguro que no cierra','King pin desgastado o torcido','Placa o soportes de la quinta flojos o con fisuras','Mecanismo de patas de apoyo dañado'],
+ inm:'Sistema de seguridad crítico: no acoplar ni circular si el seguro no cierra o la quinta o el king pin están flojos o desgastados.',
+ op:'No',p:1,
+ mt:['Inspeccionar mordazas, seguro, placa y pernos de la quinta rueda','Medir el desgaste del king pin y revisar la placa del tráiler','Engrasar la quinta rueda y revisar las patas de apoyo','Reparar o cambiar la quinta rueda o el king pin según la medición'],
+ rep:R(['Kit de reparación de quinta rueda (mordazas, resortes, seguro)'],['King pin (pin rey)'],['Pernos y soportes de la quinta rueda'],['Grasa para quinta rueda','P'],['Mecanismo de patas de apoyo']),
+ h:'2–6 h',preg:['¿El seguro cierra y se ve el indicador?','¿Hay juego o golpe al arrancar y frenar?'],
+ prev:'Engrasar la quinta rueda y medir el desgaste del king pin en cada preventivo.'},
+{k:'Recalentamiento',re:/recalent|temperatura|hierve|refrigerante|radiador|termostato|ventilador|bomba de agua|coolant|se calienta/g,
+ dx:'Sobrecalentamiento o pérdida de refrigerante del motor',
+ cau:['Nivel bajo de refrigerante por fuga (mangueras, radiador, bomba de agua)','Termostato pegado o ventilador que no actúa','Radiador obstruido por tierra o taponado por dentro','Bomba de agua con fuga o rodamiento dañado','Junta de culata o enfriador de aceite (si hay mezcla agua–aceite o humo blanco)'],
+ inm:'Detener y apagar el motor; dejar enfriar y no abrir la tapa caliente. Seguir con temperatura alta puede fundir el motor.',
+ op:'No',p:1,
+ mt:['Revisar nivel y estado del refrigerante, mangueras y abrazaderas','Prueba de presión al sistema de enfriamiento','Verificar termostato, ventilador y correa','Lavar el radiador por fuera y, si hay taponamiento, limpiarlo por dentro','Si hay mezcla agua–aceite: diagnóstico de junta de culata o enfriador de aceite en taller especializado'],
+ rep:R(['Refrigerante / aditivo SCA','P'],['Mangueras de radiador y abrazaderas'],['Termostato'],['Bomba de agua'],['Tapa de radiador'],['Correa del ventilador / serpentina']),
+ h:'2–6 h (más si es culata)',preg:['¿Cuánta temperatura marcó y en qué tramo (subida, plano)?','¿Había fuga visible o nivel bajo?','¿Salió vapor o humo blanco?'],
+ prev:'Cambiar mangueras de radiador a los 200.000 km (ya está en el plan) y revisar el nivel en cada preoperacional.'},
+{k:'Aceite del motor',re:/presion de aceite|aceite bajo|nivel de aceite|fuga de aceite|bota aceite|botando aceite|pierde aceite|consume aceite|carter|sello del ciguenal|retenedor del ciguenal|goteo de aceite|sudando aceite|empaque.{0,15}(tapa|carter)|manguera de aceite/g,
+ dx:'Baja presión o pérdida de aceite del motor',
+ cau:['Fuga por cárter, empaque de tapa de válvulas, sello de cigüeñal o mangueras','Nivel bajo por consumo (anillos o sellos del turbo)','Filtro de aceite saturado o bomba de aceite con desgaste','Sensor de presión defectuoso (si la presión real es normal)'],
+ inm:'Si el testigo de presión de aceite se enciende, apagar el motor de inmediato. Verificar el nivel con la varilla antes de reanudar la marcha.',
+ op:'Con restricción',p:2,up:[/presion de aceite|testigo|luz roja|se prendio|se encendio|sin aceite|nivel minimo/,1,'No'],
+ mt:['Verificar nivel y estado del aceite (color, mezcla con agua o combustible)','Localizar la fuga: limpiar la zona y observar con el motor encendido','Cambiar el empaque o sello defectuoso y revisar el respiradero del cárter','Si el cambio de aceite está próximo, adelantarlo junto con los filtros'],
+ rep:R(['Empaque de cárter / tapa de válvulas'],['Sello (retenedor) de cigüeñal'],['Mangueras y racores de aceite'],['Filtro de aceite','P'],['Aceite de motor (reposición)','P'],['Sensor de presión de aceite']),
+ h:'2–8 h según el sello',preg:['¿Se encendió el testigo de aceite? ¿A qué rpm?','¿Cuánto aceite se repone por semana?','¿Dónde se ve el goteo?'],
+ prev:'Cambio de aceite y filtros por km u horas (lo primero) y control de nivel en cada preoperacional.'},
+{k:'Humo negro',re:/humo.{0,20}(negro|oscuro)|(negro|oscuro).{0,20}humo/g,
+ dx:'Humo negro: combustión incompleta (exceso de combustible o poco aire)',
+ cau:['Filtro de aire restringido','Inyectores sucios o con fuga','Turbo con fuga de aire o desgaste','Fugas en mangueras de admisión o intercooler','Falla electrónica con códigos activos'],
+ inm:'Puede llegar al taller si la potencia es normal. Revisar el filtro de aire y escanear los códigos de falla.',
+ op:'Con restricción',p:2,
+ mt:['Revisar o cambiar el filtro de aire y verificar el indicador de restricción','Revisar mangueras e intercooler por fugas','Escanear la ECM con el software del fabricante (p. ej., Cummins INSITE)','Prueba de inyectores o balance de cilindros en taller'],
+ rep:R(['Filtro de aire primario','P'],['Mangueras y abrazaderas de admisión / intercooler'],['Inyectores (limpieza o cambio)'],['Filtro de combustible']),
+ h:'2–5 h',preg:['¿Sale en aceleración fuerte o siempre?','¿Perdió potencia o aumentó el consumo?'],
+ prev:'Revisar el filtro de aire cada cambio de aceite y cambiarlo cada 2 cambios o 6 meses.'},
+{k:'Humo blanco',re:/humo.{0,20}(blanco|vapor)|blanco.{0,20}humo/g,
+ dx:'Humo blanco: refrigerante o combustible sin quemar',
+ cau:['Fuga de refrigerante hacia la cámara (junta de culata o culata fisurada)','Motor frío o termostato abierto','Inyección retardada o inyectores con falla','Agua en el combustible'],
+ inm:'Si hay pérdida de refrigerante o recalentamiento, apagar el motor. Si solo ocurre al arrancar en frío, programar revisión.',
+ op:'Con restricción',p:2,
+ mt:['Revisar el nivel de refrigerante y si hay aceite en el refrigerante','Prueba de gases de combustión en el refrigerante','Drenar la trampa de agua del combustible','Escanear la ECM'],
+ rep:R(['Filtro de combustible / separador de agua','P'],['Termostato'],['Junta de culata (solo si se confirma)']),
+ h:'2–8 h',preg:['¿Sale con el motor frío o también caliente?','¿Baja el nivel de refrigerante?'],
+ prev:'Drenar a diario la trampa de agua y revisar el nivel de refrigerante.'},
+{k:'Humo azul',re:/humo.{0,20}(azul|azulado|gris)/g,
+ dx:'Humo azul o gris: el motor quema aceite',
+ cau:['Sellos del turbo con fuga','Anillos o camisas desgastados','Sellos o guías de válvulas','Exceso de aceite o respiradero del cárter obstruido'],
+ inm:'Verificar el nivel (no exceder), vigilar el consumo de aceite y programar el diagnóstico de compresión y turbo.',
+ op:'Con restricción',p:2,
+ mt:['Medir el consumo de aceite por cada 1.000 km','Revisar el turbo (holgura) y sus mangueras de aceite','Prueba de compresión / blow-by','Revisar el respiradero del cárter'],
+ rep:R(['Turbocompresor / kit de reparación'],['Sellos de válvulas'],['Kit de anillos y camisas (si se confirma)'],['Filtro de aceite y aceite','P']),
+ h:'4–30 h según el hallazgo',preg:['¿Cuánto aceite repone por semana?','¿El humo sale al acelerar o en ralentí?'],ext:true,
+ prev:'Controlar consumo de aceite y no exceder los intervalos de cambio.'},
+{k:'Humo (sin color)',re:/humo|humea|fumando/g,
+ dx:'Humo anormal por el escape: falta identificar el color',
+ cau:['Negro: exceso de combustible o falta de aire','Blanco: refrigerante o combustible sin quemar','Azul o gris: consumo de aceite'],
+ inm:'Pedir al conductor el color del humo y cuándo aparece. Si hay recalentamiento o testigo rojo, detener.',
+ op:'Con restricción',p:2,
+ mt:['Observar el humo con el motor en caliente y a plena aceleración','Revisar filtro de aire, nivel de refrigerante y nivel de aceite','Escanear la ECM'],
+ rep:R(['Filtro de aire primario','P'],['Filtros de combustible','P']),
+ h:'1–3 h',preg:['¿De qué color es el humo?','¿Cuándo sale: al arrancar, al acelerar o siempre?'],prev:''},
+{k:'Pérdida de potencia',re:/turbo|pierde potencia|sin potencia|sin fuerza|le falta fuerza|falta de potencia|falta fuerza|no jala|no sube|poca fuerza|baja potencia|modo de emergencia|derate|limitado/g,
+ dx:'Pérdida de potencia (admisión, turbo, combustible o limitación electrónica)',
+ cau:['Filtro de aire o de combustible restringido','Fuga de aire en intercooler o mangueras del turbo','Turbo con desgaste o actuador defectuoso','Inyectores con falla o aire en el combustible','Limitación (derate) activada por un código de falla'],
+ inm:'Puede llegar al taller con poca carga; evitar subidas cargado. Escanear los códigos de falla.',
+ op:'Con restricción',p:2,
+ mt:['Escanear la ECM: códigos activos e históricos','Cambiar los filtros de aire y combustible si están saturados','Prueba de presión del turbo y de fugas en admisión','Revisar inyectores y presión de combustible'],
+ rep:R(['Filtro de aire primario y secundario','P'],['Filtros de combustible (primario y secundario)','P'],['Mangueras y abrazaderas del intercooler'],['Turbocompresor'],['Inyectores'],['Sensor de presión de turbo / temperatura']),
+ h:'2–6 h',preg:['¿Pierde fuerza en subidas, cargado o siempre?','¿Hay algún testigo encendido o humo?'],
+ prev:'Cambiar filtros a tiempo y revisar mangueras del intercooler en cada preventivo.'},
+{k:'Arranque y combustible',re:/no arranca|no enciende|no prende|arranca duro|arranca mal|tarda en arrancar|motor de arranque|bendix|solenoide|se apaga|se ahoga|se muere|inyector|filtro (de )?(combustible|diesel)|trampa|agua en el combustible|bomba de (alta|combustible|cebado)/g,
+ dx:'Falla de arranque o de alimentación de combustible',
+ cau:['Baterías descargadas, bornes sulfatados o cables flojos','Motor de arranque o solenoide con falla','Filtros de combustible saturados o agua en la trampa','Aire en el sistema o bomba de cebado / alta presión con falla','Corte por código de falla o interruptor de seguridad'],
+ inm:'Revisar baterías (≥ 12,4 V en reposo), bornes y trampa de agua antes de insistir. No accionar la marcha más de 15 segundos seguidos.',
+ op:'No',p:2,
+ mt:['Medir el voltaje de las baterías y la carga del alternador','Limpiar y apretar los bornes','Drenar la trampa de agua y cambiar los filtros de combustible','Cebar el sistema y revisar entradas de aire','Escanear la ECM'],
+ rep:R(['Filtros de combustible y separador de agua','P'],['Batería 12 V de servicio pesado'],['Motor de arranque / solenoide'],['Cables y bornes de batería'],['Bomba de cebado']),
+ h:'1–4 h',preg:['¿Gira el motor de arranque o hace solo un clic?','¿Se apagó en marcha o no arrancó desde el parqueo?','¿Cuándo se cambió el filtro de combustible?'],
+ prev:'Drenar a diario la trampa de agua y cambiar los filtros de combustible según el plan.'},
+{k:'Consumo y fuga de combustible',re:/consumo (alto|excesivo|de combustible|elevado)|gasta (mucho|mas)|rendimiento (bajo|de combustible)|rinde poco|mucho combustible|fuga de (combustible|diesel|acpm)|gotea (diesel|combustible)|huele a (diesel|acpm)/g,
+ dx:'Consumo anormal o fuga de combustible',
+ cau:['Fuga en líneas, tanque o filtros','Filtros de aire o de combustible saturados','Llantas con baja presión o desalineación','Ralentí excesivo o forma de conducir (consultar Satrack)','Inyectores o turbo con falla'],
+ inm:'Una fuga visible es riesgo de incendio: no operar hasta corregirla. El consumo alto sin fuga se atiende en el próximo mantenimiento.',
+ op:'Con restricción',p:3,up:[/fuga de (combustible|diesel|acpm)|gotea|huele a/,1,'No'],
+ mt:['Inspeccionar líneas, tanque y filtros por fugas','Comparar el consumo con Satrack y los tanqueos (ralentí, velocidad, ruta)','Verificar presión de llantas y alineación','Cambiar filtros si corresponde y revisar inyectores'],
+ rep:R(['Filtros de combustible','P'],['Filtro de aire','P'],['Mangueras y abrazaderas de combustible'],['Tapa o válvula del tanque'],['Inyectores']),
+ h:'1–4 h',preg:['¿Hay goteo visible bajo el camión?','¿Desde cuándo aumentó el consumo y en qué ruta?'],
+ prev:'Comparar mensualmente consumo contra Satrack y controlar el ralentí.'},
+{k:'Llantas',re:/llanta|neumatic|ponch|revent|pinch|despostill|abultamiento|ampolla|banda de rodamiento|valvula de (la )?llanta|\brin\b|\baro\b|desbalance|alineacion|balanceo|caucho|desinfl|cuerda|calibr/g,
+ dx:'Daño o desgaste anormal de llantas',
+ cau:['Presión incorrecta (baja o alta), pinchazo o fuga en la válvula','Desalineación, mal balanceo o suspensión y rodamientos con juego','Sobrecarga o carga mal distribuida','Daño por impacto (hueco, bordillo), ampolla o corte lateral','Banda con poca profundidad o desgaste irregular'],
+ inm:'No operar con ampolla, corte en el costado, cuerda expuesta o banda por debajo del mínimo definido por la empresa: cambiar por la llanta de repuesto. Medir presión en frío.',
+ op:'Con restricción',p:2,up:[/revent|ampolla|abultamiento|corte|cuerda|explot|desinflad|sin aire/,1,'No'],
+ mt:['Medir la presión y la profundidad de banda de todas las llantas del equipo','Inspeccionar daños (cortes, ampollas, objetos incrustados) y válvulas','Reparar o cambiar la llanta y registrar el movimiento en el módulo Llantas','Revisar alineación y balanceo, y rotar según el plan','Verificar rodamientos y suspensión si el desgaste es irregular'],
+ rep:R(['Llanta nueva o reencauchada (medida del puesto)'],['Válvula / extensión de válvula'],['Kit de reparación (parche) para llanta sin cámara'],['Contrapesos de balanceo'],['Rin / aro (si está deformado)']),
+ h:'1–3 h',preg:['¿Qué llanta (posición) y qué le pasó?','¿Se pinchó, reventó o se desgasta de un solo lado?','¿Qué presión tenía?'],
+ prev:'Medir presión y banda cada semana, rotar según el plan y alinear al cambiar llantas.'},
+{k:'Suspensión',re:/suspension|muelle|ballesta|amortiguador|barra estabilizadora|buje|torque rod|tornillo central|hojas? de resorte|golpetea|se inclina|se ladea|descuadrad|balancin|resorte|u-?bolt|grapas?|ecualizador/g,
+ dx:'Falla en suspensión (muelles, bujes, balancines, amortiguadores o grapas)',
+ cau:['Hoja de muelle rota o tornillo central cortado','Grapas (abrazaderas en U) flojas o rotas','Bujes de balancín o barra de torsión desgastados','Amortiguador sin acción o con fuga','Sobrecarga o carga mal distribuida'],
+ inm:'No operar con muelle roto, grapas flojas o eje desplazado: riesgo de perder el control.',
+ op:'Con restricción',p:2,up:[/rota|roto|rotura|partid|se solt|suelt|desplaz|cortad/,1,'No'],
+ mt:['Inspección visual de muelles, tornillos centrales, grapas, bujes y soportes','Reapriete de grapas con el torque especificado y verificación de la alineación de ejes','Cambio de hojas de muelle, bujes o amortiguadores afectados','Alinear después de reparar'],
+ rep:R(['Hojas de muelle / paquete de muelle'],['Grapas (U-bolts) con tuercas'],['Bujes de balancín y soportes'],['Amortiguadores'],['Tornillo central']),
+ h:'3–8 h',preg:['¿El camión se inclina hacia un lado?','¿Se escucha golpe en huecos o al frenar?'],
+ prev:'Reapretar grapas y revisar bujes y muelles en cada preventivo.'},
+{k:'Sistema de volteo (hidráulico)',re:/volco|volqueo|piston|hidraulic|cilindro|bomba hidraulica|toma de fuerza|\bpto\b|no levanta|no sube el|baja sola|tolva|compuerta|aceite hidraulico|platon|telescopic|se queda (pegado|trabado)/g,
+ dx:'Falla en el sistema de volteo (pistón telescópico, bomba hidráulica, toma de fuerza o compuerta)',
+ cau:['Nivel bajo o contaminación del aceite hidráulico','Fuga en manguera, racor o sellos del pistón','Bomba hidráulica con desgaste o toma de fuerza (PTO) que no acopla','Válvula de control o presión de alivio desajustada','Pistón con tramos trabados o pivotes sin engrase'],
+ inm:'No levantar el volco con carga si hay fuga, baja solo o se mueve brusco: riesgo de volcamiento y aplastamiento. Asegurar el volco con soporte antes de intervenir.',
+ op:'Con restricción',p:2,up:[/baja sola|se cae|desplom|no sostiene|revent.{0,12}manguera/,1,'No'],
+ mt:['Revisar el nivel y el estado del aceite hidráulico y cambiar el filtro','Inspeccionar mangueras, racores y sellos del pistón para ubicar fugas','Verificar la bomba, la toma de fuerza y la presión de trabajo','Engrasar pivotes, bisagras y compuerta; revisar los seguros','Cambiar sellos del pistón o mangueras según el hallazgo'],
+ rep:R(['Aceite hidráulico (según fabricante)','P'],['Filtro hidráulico','P'],['Mangueras hidráulicas y racores'],['Kit de sellos del pistón'],['Bomba hidráulica / kit de reparación'],['Seguros y pasadores de compuerta']),
+ h:'2–8 h',preg:['¿Falla al subir, al bajar o se queda pegado?','¿Hay aceite hidráulico en el piso o en el pistón?','¿Funciona la toma de fuerza?'],
+ prev:'Revisar nivel y fugas del sistema hidráulico y engrasar pivotes en cada preventivo.'},
+{k:'Caja de cambios',re:/caja de (cambios|velocidades)|transmision|sincroniz|se sale la (velocidad|marcha)|no entra|no engrana|ruido.{0,15}caja|palanca de cambios|eaton|fuller|splitter|cambios duros|aceite de caja|valvulina de caja|\bcaja\b/g,
+ dx:'Falla en la caja de cambios (mando, sincronizado o lubricación)',
+ cau:['Nivel bajo o aceite degradado en la caja','Embrague que no desembraga del todo','Mando, palanca o varillaje desajustados','Rodamientos o engranajes desgastados (ruido)','Válvula de rango / splitter o línea de aire con fuga'],
+ inm:'Verificar nivel y fugas; no forzar los cambios. Si se sale de marcha, no operar en pendiente.',
+ op:'Con restricción',p:2,
+ mt:['Revisar el nivel y el estado de la valvulina de caja (plan: Mobil 80W90 cada 90.000 km)','Revisar embrague, mando y varillaje','Inspeccionar fugas y el tapón magnético (limallas)','Diagnóstico en taller especializado si hay ruido o se sale de marcha'],
+ rep:R(['Valvulina de caja 80W90','P'],['Filtro de aceite de caja (si aplica)'],['Kit de reparación del mando / sellos'],['Rodamientos y sincronizadores'],['Válvula de rango / splitter']),
+ h:'2–10 h',ext:true,preg:['¿Qué cambio falla y en qué condición (cargado, en subida)?','¿Hay ruido? ¿Desde cuándo?'],
+ prev:'Cambiar la valvulina cada 90.000 km y revisar fugas en cada preventivo.'},
+{k:'Embrague',re:/embrague|clutch|croche|patina|no desembraga|pedal.{0,12}(duro|blando|se queda)|disco de embrague|prensa|collarin|bombin|vibra al soltar/g,
+ dx:'Falla del embrague (patinamiento, no desembraga o pedal anormal)',
+ cau:['Disco y prensa desgastados o con aceite','Cilindro maestro o auxiliar con fuga o aire','Collarín (balinera de empuje) dañado','Pedal o servo de embrague desajustado'],
+ inm:'Si patina o no desembraga, no operar cargado ni en pendiente; programar el cambio del kit.',
+ op:'Con restricción',p:2,
+ mt:['Revisar el nivel de líquido y las fugas del sistema hidráulico del embrague','Purgar o reparar cilindro maestro y auxiliar','Cambiar el kit de embrague (disco, prensa y collarín) y revisar el volante','Ajustar pedal y servo'],
+ rep:R(['Kit de embrague (disco, prensa y collarín)'],['Cilindro maestro / auxiliar de embrague'],['Líquido hidráulico del embrague','P'],['Volante del motor (rectificar o cambiar)']),
+ h:'8–14 h',ext:true,preg:['¿Patina al subir cargado o no desembraga al cambiar?','¿Cómo siente el pedal?'],prev:''},
+{k:'Diferenciales y cardán',re:/diferencial|cardan|cruceta|tijera|rolinera|palier|corona|pinon|ruido.{0,15}(atras|eje|trasero)|golpe.{0,15}cardan|vibracion.{0,15}(eje|acelera)|eje trasero|junta universal|soporte central/g,
+ dx:'Falla en diferenciales o línea de transmisión (cardán y crucetas)',
+ cau:['Cruceta o soporte central del cardán con juego','Valvulina del diferencial baja o degradada','Rodamientos de piñón o corona desgastados','Retenedor con fuga','Palier o junta rota'],
+ inm:'Detener si hay golpes fuertes, vibración severa o fuga abundante de valvulina: el cardán puede romperse.',
+ op:'Con restricción',p:2,
+ mt:['Revisar juego de crucetas, bocinas y soporte central, y engrasar','Revisar nivel y estado de la valvulina de los diferenciales (plan: 80W140 cada 90.000 km)','Revisar fugas en retenedores y respiraderos','Prueba en ruta para ubicar el ruido'],
+ rep:R(['Cruceta (junta universal) del cardán'],['Soporte central / bocina del cardán'],['Valvulina 80W140 para diferencial','P'],['Retenedores de piñón y ruedas'],['Rodamientos de piñón y corona (si se confirma)']),
+ h:'2–10 h',ext:true,preg:['¿El ruido o golpe es al arrancar, al acelerar o en giros?','¿Hay valvulina regada?'],
+ prev:'Engrasar crucetas con el plan y cambiar valvulina cada 90.000 km.'},
+{k:'Iluminación y señales',re:/luces|luz (delantera|trasera|de freno|direccional|de parqueo|stop)|farol|\bfaro|\bstop|direccional|exploradora|cocuyo|lampara|bombillo|reflectiv|parqueo|luz baja|luz alta|siete vias|7 vias/g,
+ dx:'Falla de iluminación o señalización',
+ cau:['Bombillo o LED fundido','Conector o toma de 7 vías del tráiler con falso contacto','Fusible o relé dañado','Cableado con corto o cable suelto a tierra'],
+ inm:'No circular de noche ni sin luces de freno, direccionales o de posición. Corregir antes del despacho.',
+ op:'Con restricción',p:2,
+ mt:['Probar todas las luces con el conductor (bajas, altas, freno, direccionales, reversa, parqueo)','Revisar fusibles, relés y conectores (toma del tráiler)','Reparar el cableado o cambiar la lámpara'],
+ rep:R(['Bombillos / LED','P'],['Conector o toma de 7 vías del tráiler'],['Fusibles y relés'],['Lámpara completa (stop o direccional)'],['Cinta reflectiva']),
+ h:'1–2 h',preg:['¿Qué luz falla y en cuál (tracto o tráiler)?'],prev:'Probar luces en cada preoperacional.'},
+{k:'Sistema eléctrico',re:/alternador|no carga|bateria|fusible|rele\b|corto|cableado|voltaje|bornes|sulfat|se descarga/g,
+ dx:'Falla del sistema eléctrico (baterías, alternador o cableado)',
+ cau:['Baterías sulfatadas o con celdas dañadas','Alternador o regulador sin carga','Cable o borne flojo o con falso contacto','Consumo parásito con el equipo apagado'],
+ inm:'Medir el voltaje con el motor apagado y encendido. Con carga baja el equipo puede quedar varado.',
+ op:'Con restricción',p:3,
+ mt:['Medir voltaje en reposo y con el motor encendido (carga del alternador)','Limpiar y apretar bornes y cables de tierra','Probar las baterías con equipo de carga','Buscar consumo parásito si se descargan solas'],
+ rep:R(['Batería 12 V de servicio pesado'],['Alternador / regulador'],['Cables y bornes'],['Fusibles y relés']),
+ h:'1–3 h',preg:['¿Se descarga en la noche o en marcha?','¿Hay testigo de carga encendido?'],prev:'Limpiar bornes en cada preventivo.'},
+{k:'Alerta electrónica del motor',re:/check engine|codigo de falla|testigo|luz (roja|amarilla|naranja|de motor)|escaner|scanner|\becm\b|sensor|tablero.{0,15}(luz|alerta)/g,
+ dx:'Alerta electrónica del motor (códigos de falla activos)',
+ cau:['Sensor defectuoso, cableado o conector con falso contacto','Condición real del motor (temperatura, presión de aceite o combustible, nivel)','Falla en el sistema de inyección'],
+ inm:'Identificar el color del testigo: rojo = detener el motor; ámbar = programar revisión pronto. Escanear los códigos.',
+ op:'Con restricción',p:2,up:[/rojo|roja|parpadea|intermitente/,1,'No'],
+ mt:['Escanear la ECM con el software del fabricante (p. ej., Cummins INSITE) y anotar códigos activos e históricos','Verificar la condición real asociada al código (nivel, presión, temperatura)','Reparar el sensor, cable o componente y borrar los códigos'],
+ rep:R(['Sensor (según el código de falla)'],['Mazo de cables / conector del sensor']),
+ h:'1–4 h',preg:['¿Qué color tiene el testigo y qué mensaje muestra?','¿Cambió el comportamiento del motor?'],prev:''},
+{k:'Escape',re:/escape|mofle|silenciador|exosto|catalizador|\bscr\b|adblue/g,
+ dx:'Falla en el sistema de escape',
+ cau:['Tubo, soporte o abrazadera rota con fuga de gases','Silenciador deteriorado','Fuga antes del turbo (pierde potencia)'],
+ inm:'Una fuga de gases cerca de la cabina o de mangueras es riesgo de incendio e intoxicación: reparar antes de operar.',
+ op:'Con restricción',p:3,
+ mt:['Inspeccionar tubería, soportes y abrazaderas','Reparar con soldadura o cambiar el tramo','Revisar mangueras cercanas por daño térmico'],
+ rep:R(['Tubo o curva de escape'],['Abrazaderas y soportes'],['Silenciador'],['Empaques del múltiple']),
+ h:'1–4 h',preg:['¿Dónde se escucha o se ve la fuga?'],prev:''},
+{k:'Daño por golpe o estructura',re:/choque|colision|accidente|golpe|se volco|chasis|larguero|fisura|travesano|soldadura|fractura|carroceria|latoneria|guardabarros|guardafango|defensa|parachoques|paragolpes|persiana|carpa|lona|toldo/g,
+ dx:'Daño estructural o por golpe / accidente',
+ cau:['Impacto con otro vehículo u obstáculo','Fatiga o sobrecarga (fisuras en soldaduras o largueros)','Mal anclaje o corrosión'],
+ inm:'Después de un golpe o accidente: inmovilizar hasta una inspección estructural (chasis, ejes, alineación, frenos y quinta rueda).',
+ op:'Con restricción',p:3,up:[/accidente|choque|colision|se volco|fisura|chasis|larguero|fractura/,1,'No'],
+ mt:['Inspección estructural y de alineación de ejes y chasis','Revisar frenos, dirección, suspensión y quinta rueda','Reparar latonería o soldadura con procedimiento certificado','Reportar al seguro y a SST si hubo accidente (PESV)'],
+ rep:R(['Lámina / carrocería / guardabarros'],['Defensa o parachoques'],['Refuerzos y soldadura de chasis'],['Carpa o lona del volco']),
+ h:'4–40 h',ext:true,preg:['¿Hubo lesionados o terceros involucrados?','¿Qué parte recibió el golpe?'],prev:''},
+{k:'Cabina y visibilidad',re:/aire acondicionado|\ba\/c\b|calefaccion|cabina|silla|asiento|vidrio|ventanilla|elevavidrio|limpiabrisas|plumilla|parabrisas|retrovisor|espejo|pintura|tapiz|puerta|cinturon|chapa|manija|techo/g,
+ dx:'Novedad de cabina, visibilidad o confort',
+ cau:['Desgaste normal o daño del componente','Falla eléctrica (motor de ventana, limpiabrisas, compresor de A/C)','Daño por golpe o vandalismo'],
+ inm:'Si afecta la visibilidad (parabrisas fisurado, espejo roto, limpiabrisas) o el cinturón, no operar hasta corregir. Lo demás se programa con el preventivo.',
+ op:'Sí',p:3,up:[/parabrisas|retrovisor|espejo|limpiabrisas|cinturon|sin vidrio|vidrio roto/,2,'Con restricción'],
+ mt:['Inspeccionar el componente, su cableado y el fusible','Reparar o reemplazar la pieza','Programar junto con el próximo preventivo si no afecta la seguridad'],
+ rep:R(['Plumillas / motor de limpiabrisas'],['Espejo retrovisor / vidrio'],['Motor de elevavidrio'],['Compresor o filtro del aire acondicionado'],['Cinturón de seguridad']),
+ h:'1–3 h',preg:['¿Afecta la visibilidad o la seguridad del conductor?'],prev:''},
+{k:'Ruido o vibración',re:/vibra|vibracion|ruido|golpeteo|chirrido|chillido|zumbido|traquetea|cascabel/g,
+ dx:'Ruido o vibración anormal: falta ubicar el origen',
+ cau:['Vibración en el volante: balanceo, alineación, llantas deformes, rodamientos o dirección','Vibración al acelerar: cardán, crucetas o soporte central','Vibración al frenar: tambores ovalados o zapatas','Golpe en huecos: suspensión o bujes','Zumbido que sube con la velocidad: rodamientos de cubo'],
+ inm:'Ubicar el origen con el conductor en una prueba en ruta. Si el ruido es metálico, intenso o hay calentamiento, detener.',
+ op:'Con restricción',p:3,
+ mt:['Prueba en ruta con el mecánico y el conductor para ubicar el origen','Inspeccionar llantas, rodamientos, cardán, suspensión y frenos','Corregir y registrar el componente en la hoja de vida'],
+ rep:[],h:'1–3 h',preg:['¿Dónde se siente (volante, piso, atrás) y a qué velocidad?','¿Ocurre al frenar, acelerar o en huecos?'],prev:''},
+{k:'Servicio preventivo',re:/cambio de aceite|aceite y filtro|preventivo|servicio de|engrase|engrasar|lubric|valvulina|toca el cambio|vencido/g,
+ dx:'Solicitud de servicio o mantenimiento preventivo',
+ cau:['Intervalo por km, horas o tiempo cumplido o próximo'],
+ inm:'No es una falla: programar el servicio según el plan.',
+ op:'Sí',p:4,
+ mt:['Consultar el plan del equipo en «Mantenimiento preventivo» y «Aceite, filtros y valvulina»','Programar el servicio para la fecha o km que corresponda','Registrar la intervención para actualizar el próximo vencimiento'],
+ rep:R(['Aceite de motor y filtro de aceite','P'],['Filtros de combustible y aire','P'],['Grasa','P']),
+ h:'2–4 h',preg:[],prev:''}
+];
+const GEN={k:'General',dx:'Novedad sin clasificación clara: requiere inspección',cau:['La descripción no permite identificar el sistema afectado'],
+ inm:'Pedir al conductor más datos (qué ocurrió, cuándo, ruidos, testigos encendidos) y revisar el equipo antes del próximo despacho.',op:'Con restricción',p:3,
+ mt:['Inspección general del equipo con el conductor','Identificar el sistema afectado y registrar el componente','Crear la orden de trabajo si se confirma la falla'],rep:[],h:'1–2 h',
+ preg:['¿Qué ocurrió exactamente y cuándo?','¿Hay ruidos, testigos encendidos, fugas o pérdida de potencia?','¿Puede operar con seguridad?'],prev:''};
+
+/* ---------- Motor experto ---------- */
+function motor(n){
+ const raw=[n.componente,n.tipo,n.descripcion].join(' '),t=nz(raw);
+ const sc=KB.map((k,i)=>({k,i,s:(t.match(k.re)||[]).length})).filter(x=>x.s>0).sort((a,b)=>b.s-a.s||a.i-b.i);
+ const top=sc.slice(0,3),m=(top[0]||{k:GEN}).k;let p=m.p,op=m.op;
+ top.forEach(x=>{const u=x.k.up;if(u&&u[0].test(t)){if(u[1]<p)p=u[1];if(RK[u[2]]>RK[op])op=u[2]}});
+ try{const s=sugP(raw,n.puede_operar,n.riesgo);if(s&&s.p<p)p=s.p}catch(e){}
+ if(n.puede_operar==='No')p=1;if(p===1)op='No';
+ const rep=m.rep.map(x=>({...x}));top.slice(1).forEach(x=>x.k.rep.filter(r=>r.t==='P').slice(0,2).forEach(r=>{if(!rep.some(y=>nz(y.n)===nz(r.n)))rep.push({...r})}));
+ return{src:'Motor experto',resumen:m.dx,causas:m.cau.slice(),accion_inmediata:m.inm,puede_operar:op,prioridad:'P'+p,
+  mantenimiento:m.mt.slice(),repuestos:rep,horas:m.h||'',taller_externo:!!m.ext,preguntas:(m.preg||[]).slice(),prevencion:m.prev||'',
+  tambien:top.slice(1).map(x=>x.k.dx),historial:''}
+}
+
+/* ---------- Cruce de repuestos con el Inventario ---------- */
+const STOP=new Set(['del','los','las','para','con','sin','kit','juego','set','segun','nuevo','nueva','aplica','confirma','solo','reposicion','tipo','servicio','pesado','completo','completa']);
+const toks=s=>nz(s).replace(/\(.*?\)/g,' ').replace(/[^a-z0-9]+/g,' ').split(' ').filter(w=>w.length>2&&!STOP.has(w)).map(w=>w.length>4?w.replace(/(es|s)$/,''):w);
+function invBuscar(nom){
+ const tk=toks(nom),inv=(typeof D!=='undefined'&&D.Inventario)||[];if(!tk.length||!inv.length)return[];
+ const out=[];inv.forEach(it=>{const hay=nz([it.descripcion,it.categoria,it.referencia,it.compatibilidad].join(' '));const hit=tk.filter(w=>hay.includes(w)).length;
+  if(hit&&hit/tk.length>=0.6&&hay.includes(tk[0]))out.push({it,s:hit/tk.length+(+it.existencia>0?0.05:0)})});
+ return out.sort((a,b)=>b.s-a.s).slice(0,2)}
+const hayStock=nom=>invBuscar(nom).some(x=>+x.it.existencia>0);
+function invHtml(nom){
+ if(!((typeof D!=='undefined'&&D.Inventario)||[]).length)return'<small>Inventario sin datos</small>';
+ const m=invBuscar(nom);if(!m.length)return'<span class="b r">No está en inventario</span> <small>→ solicitar compra</small>';
+ return m.map(({it})=>{const ex=+it.existencia||0,mn=+it.minimo||0,bajo=mn>0&&ex<=mn;
+  return(ex>0?`<span class="b ${bajo?'y':'g'}">${ex} ${E_(it.unidad||'und')}${bajo?' · bajo mínimo':''}</span>`:'<span class="b r">Sin existencia</span>')+' <small>'+E_([it.codigo,(it.descripcion||'').slice(0,48),it.ubicacion].filter(Boolean).join(' · '))+'</small>'}).join('<br>')}
+
+/* ---------- Configuración, caché y utilidades ---------- */
+const CFGK='igc_ia_cfg',CACHEK='igc_dx_v1',MODEL0='claude-sonnet-5-5';
+const cfgGet=()=>{try{const c=JSON.parse(localStorage.getItem(CFGK)||'{}');return{key:String(c.key||'').trim(),model:String(c.model||MODEL0).trim()||MODEL0,auto:c.auto!==false}}catch(e){return{key:'',model:MODEL0,auto:true}}};
+const cfgSet=c=>{try{localStorage.setItem(CFGK,JSON.stringify(c))}catch(e){}};
+let CA=null;const cLoad=()=>{if(CA)return CA;try{CA=JSON.parse(localStorage.getItem(CACHEK)||'{}')}catch(e){CA={}}return CA};
+const cSave=()=>{try{const ks=Object.keys(CA);if(ks.length>150)ks.sort((a,b)=>(CA[a].t||0)-(CA[b].t||0)).slice(0,ks.length-120).forEach(k=>delete CA[k]);localStorage.setItem(CACHEK,JSON.stringify(CA))}catch(e){}};
+const hs=s=>{let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return(h>>>0).toString(36)};
+const sigN=n=>hs(nz([n.componente,n.tipo,n.descripcion,n.puede_operar,n.riesgo,n.tracto,n.trailer].join('|')));
+const cGet=n=>{if(!n||!n.id)return null;const e=cLoad()['N'+n.id];return e&&e.sig===sigN(n)?e.r:null};
+const cPut=(n,r)=>{if(!n||!n.id||r.src!=='IA')return;cLoad()['N'+n.id]={sig:sigN(n),t:Date.now(),r};cSave()};
+let TMP={sig:'',r:null};
+const dx=n=>cGet(n)||(n&&!n.id&&TMP.sig===sigN(n)&&TMP.r)||motor(n);
+const hasTxt=n=>(String(n.descripcion||'')+String(n.componente||'')).trim().length>=5;
+const needsAI=(n,cf)=>cf.key&&!cGet(n)&&!(n&&!n.id&&TMP.sig===sigN(n)&&TMP.r&&TMP.r.src==='IA');
+
+/* ---------- Llamada a la IA (Claude) ---------- */
+const SYS=`Eres el jefe de taller de una empresa colombiana de transporte de carga seca (gravas, arenas y agregados) con tractocamiones Kenworth e International con motor Cummins ISX y tráileres tipo volco con sistema hidráulico. Recibes una novedad reportada por un conductor o creada por el área de mantenimiento, junto con los datos del equipo, su historial, el plan preventivo y el inventario de repuestos.
+Responde SOLO con un objeto JSON válido (sin texto adicional ni markdown) con esta forma:
+{"resumen":"diagnóstico probable en una frase","causas":["hasta 5, de la más a la menos probable"],"accion_inmediata":"qué hacer ahora con el equipo","puede_operar":"No|Con restricción|Sí","prioridad":"P1|P2|P3|P4","mantenimiento":["pasos concretos y ordenados de diagnóstico y reparación"],"repuestos":[{"nombre":"nombre genérico","cantidad":1,"tipo":"Probable|Según inspección"}],"horas":"horas-taller estimadas","taller_externo":false,"preguntas":["datos que falta pedir al conductor"],"prevencion":"cómo evitar que se repita","historial":"si el historial muestra fallas repetidas indícalo; si no, cadena vacía"}
+Reglas: la seguridad va primero (frenos, dirección, sistema de aire, llantas, quinta rueda, cubos y rodamientos, suspensión rota, fugas de combustible, sobrecalentamiento, bajada del volco: puede_operar "No"). No inventes números de parte; usa nombres genéricos y, si el inventario tiene un artículo equivalente, usa su nombre tal como aparece. Si la descripción es insuficiente, da el diagnóstico más probable y pide los datos faltantes en "preguntas". Usa el historial para detectar repetición y el plan preventivo para recomendar adelantar servicios vencidos o próximos. Sé concreto y breve. Es una orientación preliminar: el mecánico confirma antes de intervenir.`;
+const cut=(s,l)=>String(s==null?'':s).slice(0,l);
+async function ctxIA(n){
+ await Promise.all(['Tractocamiones','Traileres','Ordenes','Novedades','Inventario','Plan','Uso'].map(x=>load(x).catch(()=>{})));
+ const eq=n.tracto||n.trailer||'',q=eqs().find(x=>x.codigo===eq)||{};let E=null;try{E=estEq(eq)}catch(e){}
+ const txt=nz([n.componente,n.tipo,n.descripcion].join(' ')),tk=toks(txt);
+ const inv=(D.Inventario||[]).map(it=>{const h=nz([it.descripcion,it.categoria,it.compatibilidad].join(' '));return{it,s:tk.filter(w=>h.includes(w)).length}}).sort((a,b)=>b.s-a.s).slice(0,160).map(x=>[x.it.codigo,cut(x.it.descripcion,55),+x.it.existencia||0]);
+ let plan=[];try{plan=due().filter(x=>x.equipo===eq&&(x.st==='Vencido'||x.st==='Próximo')).slice(0,8).map(x=>({actividad:cut(x.actividad,60),estado:x.st,detalle:cut(x.det,60)}))}catch(e){}
+ return{equipo:{codigo:eq,placa:q.placa||'',marca:q.marca||'',linea:q.linea||'',modelo:q.modelo||'',motor:q.motor_marca_modelo||'',caja:q.caja||'',km_actual:E&&E.km!=null?Math.round(E.km):(n.km||''),estado:q.estado||''},
+  novedad:{fecha:n.fecha||'',hora:n.hora||'',conductor:n.conductor||'',componente:n.componente||'',tipo:n.tipo||'',descripcion:cut(n.descripcion,900),riesgo:n.riesgo||'',puede_operar:n.puede_operar||'',ubicacion:n.ubicacion||'',observaciones:cut(n.observaciones,300)},
+  historial_ordenes:(D.Ordenes||[]).filter(o=>o.equipo===eq).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))).slice(0,8).map(o=>({fecha:o.fecha,componente:o.componente,diagnostico:cut(o.diagnostico,110),repuestos:cut(o.repuestos,90),estado:o.estado})),
+  novedades_previas:(D.Novedades||[]).filter(v=>(v.tracto||v.trailer)===eq&&v.id!==n.id).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))).slice(0,6).map(v=>({fecha:v.fecha,componente:v.componente,descripcion:cut(v.descripcion,100)})),
+  plan_preventivo_pendiente:plan,inventario_codigo_descripcion_existencia:inv}}
+const arr=x=>Array.isArray(x)?x.map(v=>typeof v==='string'?v:(v&&(v.texto||v.nombre))||'').map(String).map(s=>s.trim()).filter(Boolean):(x?[String(x)]:[]);
+function parseJ(t){t=String(t||'').replace(/```json|```/g,'').trim();try{return JSON.parse(t)}catch(e){const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a>=0&&b>a)return JSON.parse(t.slice(a,b+1));throw e}}
+function normIA(j,n,base){
+ const o=v=>{v=nz(v);return/^no\b|^no$/.test(v)?'No':/restric|autoriz|con /.test(v)?'Con restricción':/^si/.test(v)?'Sí':'Con restricción'};
+ let p=parseInt((String(j.prioridad||'').match(/[1-4]/)||[])[0],10)||parseInt(base.prioridad.slice(1),10);
+ const bp=parseInt(base.prioridad.slice(1),10);if(bp===1&&p>1)p=1; /* el motor no deja bajar de P1 un sistema de seguridad con falla evidente */
+ let op=o(j.puede_operar);if(p===1)op='No';if(n.puede_operar==='No'){p=1;op='No'}
+ const rp=(Array.isArray(j.repuestos)?j.repuestos:[]).map(x=>typeof x==='string'?{n:x,c:1,t:'I'}:{n:String(x.nombre||x.n||'').trim(),c:Math.max(1,parseInt(x.cantidad||x.c,10)||1),t:/prob/i.test(x.tipo||x.t||'')?'P':'I'}).filter(x=>x.n);
+ return{src:'IA',modelo:'',resumen:String(j.resumen||base.resumen),causas:arr(j.causas).slice(0,6),accion_inmediata:String(j.accion_inmediata||base.accion_inmediata),puede_operar:op,prioridad:'P'+p,
+  mantenimiento:arr(j.mantenimiento),repuestos:rp,horas:String(j.horas||''),taller_externo:j.taller_externo===true||/^s[ií]/i.test(String(j.taller_externo||'')),preguntas:arr(j.preguntas),prevencion:String(j.prevencion||''),tambien:[],historial:String(j.historial||'')}}
+async function llamarIA(n,cf){
+ const ctx=await ctxIA(n),base=motor(n),ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),50000);let r,tx;
+ try{r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':cf.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+  body:JSON.stringify({model:cf.model,max_tokens:2200,system:SYS,messages:[{role:'user',content:'Analiza esta novedad y responde solo con el JSON:\n'+JSON.stringify(ctx)}]}),signal:ctl.signal});tx=await r.text()}
+ catch(e){clearTimeout(tm);throw new Error(e&&e.name==='AbortError'?'la IA tardó demasiado':'sin conexión con la IA ('+(e&&e.message||e)+')')}
+ clearTimeout(tm);let j;try{j=JSON.parse(tx)}catch(e){throw new Error('respuesta no válida de la IA')}
+ if(!r.ok){const m=(j.error&&j.error.message)||('error '+r.status);throw new Error(r.status===401?'la llave de la API no es válida':r.status===429?'límite de uso de la API alcanzado':r.status===404?'modelo no disponible: revise el nombre del modelo':m)}
+ const txt=(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('');let o;try{o=parseJ(txt)}catch(e){throw new Error('la IA no devolvió un formato legible')}
+ const res=normIA(o,n,base);res.modelo=cf.model;return res}
+async function run(n,opt){
+ opt=opt||{};const cf=cfgGet();let r=motor(n);
+ if(cf.key&&!opt.noAI&&hasTxt(n)&&String(n.descripcion||'').trim().length>=8){try{r=await llamarIA(n,cf)}catch(e){r.ia_error=String(e&&e.message||e)}}
+ if(r.src==='IA'){if(n.id)cPut(n,r);else TMP={sig:sigN(n),r}}
+ return r}
+
+/* ---------- Presentación ---------- */
+const st=document.createElement('style');st.textContent='.iadx{margin-top:10px;border:1px solid #c9d6e3;border-radius:10px;padding:10px;background:#f7fafd}.iadx td,.iadx th{white-space:normal;vertical-align:top}.iadx ul,.iadx ol{margin:3px 0 8px 18px;padding:0}.iadx h5{margin:8px 0 3px;font-size:13px;color:var(--p)}.iadx .bar{align-items:center}.b.o{background:#ffe0b2;color:#a64b00}.iacel{white-space:normal;min-width:190px;max-width:260px;display:inline-block}';document.head.appendChild(st);
+const OPB={'No':'r','Con restricción':'o','Sí':'g'};
+function dxHtml(r,n){
+ const pn=+r.prioridad.slice(1)||3,fal=r.repuestos.filter(x=>!hayStock(x.n)).length;
+ const alerta=r.puede_operar==='No'?'background:#fdd;border-color:#c62828':r.puede_operar==='Sí'?'background:#e3f4e4;border-color:#2e7d32':'';
+ return`<div class=bar style="margin:0 0 6px">${bd('prioridad',r.prioridad)}<span class="b ${OPB[r.puede_operar]||''}">Puede operar: ${E_(r.puede_operar)}</span><span class="b p">${r.src==='IA'?'🤖 IA'+(r.modelo?' · '+E_(r.modelo):''):'⚙ Motor experto'}</span></div>
+ <p style="margin:4px 0"><b>Qué le pasa:</b> ${E_(r.resumen)}</p>
+ <div class=wn style="${alerta}"><b>${r.puede_operar==='No'?'⛔ ':'⚠ '}Qué hacer ahora:</b> ${E_(r.accion_inmediata)}</div>
+ ${r.historial?`<div class=wn><b>📚 Historial:</b> ${E_(r.historial)}</div>`:''}
+ ${r.causas.length?'<h5>Causas probables</h5><ol>'+r.causas.map(c=>'<li>'+E_(c)).join('')+'</ol>':''}
+ <h5>Mantenimiento que corresponde</h5>${r.mantenimiento.length?'<ol>'+r.mantenimiento.map(c=>'<li>'+E_(c)).join('')+'</ol>':'<small>Se define tras la inspección.</small>'}
+ <h5>Repuestos a reemplazar ${r.repuestos.length?`<small>(${fal?fal+' por comprar o verificar':'todos con existencia'})</small>`:''}</h5>
+ ${r.repuestos.length?TB(['Repuesto','Cant.','Seguridad','Inventario'],r.repuestos.map(x=>[E_(x.n),x.c,x.t==='P'?'<span class="b y">Probable</span>':'<small>Según inspección</small>',invHtml(x.n)])):'<small>Se define tras la inspección.</small>'}
+ <p style="margin:6px 0"><small>⏱ Tiempo estimado: <b>${E_(r.horas||'—')}</b> · Taller externo: <b>${r.taller_externo?'probable':'no necesario'}</b> · Plazo según prioridad: ${E_(LV[pn][1])}</small></p>
+ ${(r.tambien&&r.tambien.length)?`<p style="margin:4px 0"><small><b>También revise:</b> ${r.tambien.map(E_).join(' · ')}</small></p>`:''}
+ ${(r.preguntas.length||r.prevencion)?`<details><summary>Preguntas al conductor y prevención</summary>${r.preguntas.length?'<ul>'+r.preguntas.map(c=>'<li>'+E_(c)).join('')+'</ul>':''}${r.prevencion?'<p><b>Para que no se repita:</b> '+E_(r.prevencion)+'</p>':''}</details>`:''}
+ ${r.ia_error?`<p class=lgd>La IA no respondió (${E_(r.ia_error)}): se muestra el motor experto.</p>`:''}
+ <p class=lgd style="margin:6px 0 0">Diagnóstico preliminar a partir del reporte: el mecánico debe confirmarlo antes de intervenir.</p>`}
+
+/* ---------- Panel dentro del formulario de la novedad (manual o de Google Forms) ---------- */
+let TOK=0,cur=null;
+function panelOpen(r,can){
+ const d=document.getElementById('dlg'),c=d.querySelector('#crit');if(!c)return;
+ const old=d.querySelector('#iadx');if(old)old.remove();
+ c.insertAdjacentHTML('afterend','<div id=iadx class=iadx><div class=bar style="margin:0 0 6px"><b>🤖 Diagnóstico de mantenimiento</b><span id=iast class=lgd></span><button type=button class=s id=iarun>Diagnosticar</button><button type=button class=s id=iacfg>⚙ IA</button></div><div id=iabody></div></div>');
+ const tok=++TOK,q=s=>d.querySelector(s),body=q('#iabody'),stt=q('#iast'),cf0=cfgGet();
+ const getN=()=>{const x={id:r&&r.id};d.querySelectorAll('[data-n]').forEach(i=>x[i.dataset.n]=i.value);return x};
+ const live=()=>cur&&cur.tok===tok&&document.body.contains(body);
+ const status=t=>{stt.textContent=t||''};
+ const paint=n=>{if(!live())return;if(!hasTxt(n)){body.innerHTML='<small>Escriba la descripción de la falla y aquí aparecerá el diagnóstico automático.</small>';return}
+  const x=dx(n);body.innerHTML=dxHtml(x,n)+`<div class=bar style="margin-top:8px"><button type=button class=s id=iaap>Aplicar prioridad sugerida</button><button type=button class=s id=iacp>Copiar repuestos</button>${r&&can&&r.estado!=='Cerrada'?'<button type=button id=iaot>Crear orden de trabajo con este diagnóstico</button>':''}</div>${r?'':'<p class=lgd>Guarde la novedad para poder crear la orden de trabajo.</p>'}`;
+  const b=s=>q(s);
+  b('#iaap').onclick=()=>{const p=q('[data-n="prioridad"]'),po=q('[data-n="puede_operar"]');if(p)p.value=x.prioridad;if(po&&!po.value&&x.puede_operar!=='Con restricción')po.value=x.puede_operar==='No'?'No':'Si';msg('Prioridad '+x.prioridad+' aplicada: recuerde guardar')};
+  b('#iacp').onclick=()=>{const t=x.repuestos.map(y=>y.n+(y.c>1?' x'+y.c:'')).join('\n');try{navigator.clipboard.writeText(t).then(()=>msg('Lista de repuestos copiada'))}catch(e){msg('No se pudo copiar',1)}};
+  if(b('#iaot'))b('#iaot').onclick=()=>{d.close();crearOT(r)}};
+ const full=async force=>{const n=getN();paint(n);if(!hasTxt(n))return;const cf=cfgGet();
+  if(!cf.key){status('');return}if(!force&&!needsAI(n,cf))return;
+  status('🤖 Analizando…');try{await Promise.all(['Inventario','Ordenes','Novedades'].map(x=>load(x).catch(()=>{})));const res=await run(n);if(!live())return;paint(n);if(res.src!=='IA'&&res.ia_error)body.insertAdjacentHTML('afterbegin','<p class=lgd>La IA no respondió ('+E_(res.ia_error)+'): se muestra el motor experto.</p>');status('')}catch(e){status('')}};
+ cur={tok,expert:()=>paint(getN()),full:()=>{if(cfgGet().auto)full(false);else paint(getN())},force:()=>full(true)};
+ q('#iarun').textContent=cf0.key?'🤖 Diagnosticar con IA':'Actualizar diagnóstico';
+ q('#iarun').onclick=()=>{if(cfgGet().key)full(true);else paint(getN())};
+ q('#iacfg').onclick=cfgDlg;
+ status(cf0.key?'IA conectada':'Motor experto integrado');
+ paint(getN());
+ Promise.all(['Inventario','Ordenes','Novedades','Plan'].map(x=>load(x).catch(()=>{}))).then(()=>{if(live())paint(getN())});
+ if(r&&cf0.key&&cf0.auto&&hasTxt(getN())&&needsAI(getN(),cf0))full(false)}
+const dg=document.getElementById('dlg');
+if(dg){const F=/^(componente|tipo|descripcion|tracto|trailer|riesgo|puede_operar)$/;
+ dg.addEventListener('input',e=>{if(cur&&F.test((e.target.dataset||{}).n||'')){clearTimeout(cur.tm);cur.tm=setTimeout(cur.expert,450)}});
+ dg.addEventListener('change',e=>{if(cur&&F.test((e.target.dataset||{}).n||'')){clearTimeout(cur.tm);cur.tm=setTimeout(cur.full,250)}});
+ dg.addEventListener('close',()=>{cur=null})}
+const _edit=window.edit;
+window.edit=function(ent,r,can,pre){const o=_edit.apply(this,arguments);if(ent==='Novedades'){try{panelOpen(r,can)}catch(e){console.error(e)}}return o};
+
+/* ---------- Columna en la lista de Novedades y diagnóstico automático al llegar reportes ---------- */
+function celHtml(n){
+ if(n.estado==='Cerrada')return'<small>—</small>';if(!hasTxt(n))return'<small>Sin descripción</small>';
+ const r=dx(n);return`<a class=lk data-o="${E_(n.id)}" title="${E_(r.resumen)}"><span class="b ${OPB[r.puede_operar]||''}">${r.src==='IA'?'🤖':'⚙'} ${E_(r.puede_operar)}</span><br><small>${E_(r.resumen.slice(0,70))}${r.resumen.length>70?'…':''}</small>${r.repuestos.length?`<br><small>🔩 ${r.repuestos.length} repuesto(s)</small>`:''}</a>`}
+window.iaCell=n=>`<span class=iacel data-dx="${E_(n.id)}">${celHtml(n)}</span>`;
+let AT=0;
+window.iaAuto=async function(N){
+ const my=++AT,cf=cfgGet(),b=document.getElementById('nia');
+ if(b){b.textContent=cf.key?'🤖 IA conectada':'🤖 Conectar IA';b.onclick=cfgDlg}
+ if(!cf.key||!cf.auto)return;
+ const upd=n=>document.querySelectorAll('[data-dx="'+n.id+'"]').forEach(e=>e.innerHTML=celHtml(n));
+ const pend=(N||[]).filter(n=>n.id&&['Nueva','En evaluacion',''].includes(n.estado||'')&&hasTxt(n)&&String(n.descripcion||'').trim().length>=8&&needsAI(n,cf))
+  .sort((a,b)=>(parseInt(String(a.prioridad||'P9').slice(1))||9)-(parseInt(String(b.prioridad||'P9').slice(1))||9)||String(b.fecha).localeCompare(String(a.fecha))).slice(0,6);
+ for(const n of pend){if(my!==AT||!document.getElementById('nt'))break;const r=await run(n);if(r.src!=='IA'&&r.ia_error){msg('Diagnóstico IA: '+r.ia_error,1);break}upd(n)}}
+window.iaOTpre=function(n){try{const r=dx(n),p={diagnostico:(n.descripcion||'')+'\n\n['+r.src+'] '+r.resumen,causa:r.causas[0]||'',actividades:r.mantenimiento.map((x,i)=>(i+1)+'. '+x).join('\n'),repuestos:r.repuestos.map(x=>x.n+(x.c>1?' x'+x.c:'')).join('; ')};if(!n.prioridad)p.prioridad=r.prioridad;return p}catch(e){return{}}};
+
+/* ---------- Configuración de la IA ---------- */
+function cfgDlg(){
+ let d=document.getElementById('iadlg');if(!d){d=document.createElement('dialog');d.id='iadlg';document.body.appendChild(d)}
+ const c=cfgGet();
+ d.innerHTML=`<h3 style="margin-top:0">🤖 Diagnóstico automático con IA</h3><p class=lgd>Sin configurar nada, el aplicativo ya diagnostica cada novedad con el <b>motor experto integrado</b> (gratis y sin internet). Si agrega una llave de la API de Anthropic, la IA además analiza el reporte con el historial del equipo, el plan preventivo y su inventario.</p>
+ <label>Llave de la API de Anthropic</label><input id=ia-k type=password placeholder="sk-ant-…" value="${E_(c.key)}" autocomplete="off">
+ <label>Modelo</label><input id=ia-m value="${E_(c.model)}">
+ <label style="display:block;margin:8px 0"><input type=checkbox id=ia-a ${c.auto?'checked':''} style="width:auto"> Diagnosticar automáticamente los reportes nuevos (hasta 6 por carga de la lista)</label>
+ <p class=lgd>La llave queda guardada <b>solo en este navegador</b> (no viaja en la «copia con conexión»). Use una llave con límite de gasto y no la comparta: quien abra este archivo en ese navegador puede usarla. Para usarla en otros equipos, repita este paso allí.</p>
+ <div id=ia-o class=lgd></div><div class=bar style="margin-top:10px"><button id=ia-s>Guardar</button><button class=s id=ia-t>Probar</button><button class=d id=ia-q>Quitar llave</button><button class=s id=ia-x>Cerrar</button></div>`;
+ const q=s=>d.querySelector(s),rd=()=>({key:q('#ia-k').value.trim(),model:q('#ia-m').value.trim()||MODEL0,auto:q('#ia-a').checked});
+ q('#ia-s').onclick=()=>{cfgSet(rd());d.close();msg('Configuración de IA guardada');const b=document.getElementById('nia');if(b)b.textContent=rd().key?'🤖 IA conectada':'🤖 Conectar IA'};
+ q('#ia-q').onclick=()=>{cfgSet({key:'',model:q('#ia-m').value.trim()||MODEL0,auto:true});d.close();msg('Llave eliminada: se usa el motor experto')};
+ q('#ia-x').onclick=()=>d.close();
+ q('#ia-t').onclick=async()=>{const o=q('#ia-o'),x=rd();if(!x.key){o.textContent='Escriba la llave primero.';return}o.textContent='Probando…';
+  try{const n={id:'',componente:'Frenos',tipo:'Prueba',descripcion:'Se escucha silbido de aire con el motor apagado y el pedal de freno suave',tracto:'PRUEBA'},base=motor(n);
+   const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':x.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:x.model,max_tokens:30,messages:[{role:'user',content:'Responde solo: OK'}]})});
+   const j=await r.json();o.innerHTML=r.ok?'<span style="color:#2e7d32">✔ Conexión correcta con '+E_(x.model)+'.</span>':'<span style="color:#c62828">✖ '+E_((j.error&&j.error.message)||('Error '+r.status))+'</span>'}
+  catch(e){o.innerHTML='<span style="color:#c62828">✖ No se pudo conectar: '+E_(e&&e.message||e)+'</span>'}};
+ d.showModal()}
+window.iaCfgDlg=cfgDlg;
+const _cfg=window.cfg;
+window.cfg=function(m){const o=_cfg.apply(this,arguments);try{const b=m.querySelector('.bar');if(b&&typeof canW==='function'&&canW()){const x=document.createElement('button');x.className='s';x.textContent='🤖 Configurar IA de diagnóstico';x.onclick=cfgDlg;b.appendChild(x)}}catch(e){}return o};
+window.IA={motor,invBuscar,normIA,parseJ,KB,nz};
+})();
+</script>
+</body></html>
