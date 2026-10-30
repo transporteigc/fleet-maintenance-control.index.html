@@ -91,7 +91,7 @@ Servicios:['equipo','fecha','km','horas','tipo|Cambio de aceite de motor/Valvuli
 Object.assign(S0,NEWS);
 const HASH='af8c4dc1cfb051552429f0a65ab6aa2f13443b34c6a1a672ed1c76c400477abf';
 async function sha(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-const call=(a,e,d)=>OFF?offCall(a,e,d||{}):cloud('api',{session:T,a,e,d:d||{}}).then(r=>r.data,x=>{const m=x&&x.message||String(x);if(/^Sesi[oó]n/i.test(m))sesionPerdida(m);throw m});
+const call=(a,e,d)=>OFF?offCall(a,e,d||{}):cloud('api',{session:T,a,e,d:d||{}}).then(r=>{QCw(a);return r.data},x=>{const m=x&&x.message||String(x);if(/^Sesi[oó]n/i.test(m))sesionPerdida(m);throw m});
 function offCall(a,e,d){return new Promise(ok=>{const r=D0[e]=D0[e]||[];if(a==='list')return ok(r.map(x=>({...x})));if(a==='del'){D0[e]=r.filter(x=>x.id!==d.id);return ok(true)}
  if(a==='save'){const o=d.id&&r.find(x=>x.id===d.id);if(o)Object.assign(o,d);else r.push({...d,id:e.slice(0,3).toUpperCase()+'-'+Date.now().toString(36).toUpperCase(),creado_por:U.u});return ok({})}ok('No disponible sin conexión')})}
 const lastOf=(p,re)=>((SEED.hv[p]&&SEED.hv[p].rows)||[]).filter(x=>re.test(x.desc)&&x.ej==='SI').map(x=>x.fecha).sort().pop()||'';
@@ -182,7 +182,18 @@ async function alertView(m){await Promise.all(['Tractocamiones','Traileres','Pla
  <p><b>Novedades y correctivos:</b> la prioridad se sugiere según la clase del componente, las palabras de falla (fuga, rotura, sin freno, humo…), el riesgo y si el equipo puede operar; usted puede cambiarla. Si queda vacía, se asigna la sugerida al guardar. Llantas: rojo ≤ ${TH.otr[0]} mm (direccional ≤ ${TH.dir[0]} mm), amarillo ≤ ${TH.otr[1]} mm (direccional ≤ ${TH.dir[1]} mm).</p></details>`;
  const draw=()=>{const r=AL.filter(a=>(!+afl||a.l===+afl)&&(!aeq||a.eq===aeq));$('#al').innerHTML=r.length?TB(['Semáforo','Equipo','Origen','Detalle','Acción'],r.map(a=>[dot(a.l),esc(a.eq),a.o,esc(a.det),esc(a.acc)])):'<p>Sin alertas con este filtro ✔</p>'};draw();
  $('#fl').onchange=e=>{afl=e.target.value;draw()};$('#fe').onchange=e=>{aeq=e.target.value;draw()};$('#fc').onclick=()=>csv('alertas',['nivel','eq','o','det','acc'],AL.map(a=>({...a,nivel:LV[a.l][0]})))}
-const load=async e=>{try{D[e]=await call('list',e)}catch(x){D[e]=[]}return D[e]};
+/* ---- caché de lecturas: cada clic ya no espera a Google Sheets ----
+   QC[e] = {d: copia maestra, t: hora de lectura, p: lectura en curso}. Menos de 30 s: se usa tal cual. Entre 30 s y 10 min: se muestra al instante y se
+   vuelve a leer por detrás (si cambió algo de otro equipo, avisa «Hay datos nuevos»). Cualquier escritura invalida todo y se vuelve a precargar. */
+const QC={},QV=new Set(),QTF=30000,QTS=600000,qClon=a=>a.map(x=>({...x}));
+function QCnuevo(e){try{if(!QV.has(e))return;const s=document.getElementById('acts');if(s){s.textContent='Hay datos nuevos · pulse ↻ Actualizar';s.style.color='#ce8813';s.style.fontWeight='700'}}catch(x){}}
+function QCfetch(e){const c=QC[e]=QC[e]||{};if(c.p)return c.p;const rev=c.rev;c.rev=false;
+ c.p=call('list',e).then(r=>{const nw=Array.isArray(r)?r:[];if(rev&&c.d&&JSON.stringify(c.d)!==JSON.stringify(nw))QCnuevo(e);c.d=nw;c.t=Date.now();c.ok=true;c.p=null;return nw},()=>{c.p=null;return c.d||[]});return c.p}
+const load=e=>{if(OFF)return call('list',e).then(r=>D[e]=r,()=>D[e]=[]);QV.add(e);const c=QC[e];
+ if(!window.__force&&c&&c.ok&&c.d){const a=Date.now()-c.t;if(a<QTS){if(a>=QTF&&!c.p){c.rev=true;QCfetch(e)}return Promise.resolve(D[e]=qClon(c.d))}}
+ return QCfetch(e).then(m=>(D[e]=qClon(m)))};
+function QCw(a){if(a==='list'||a==='schema'||a==='db_status'||a==='forms_status'||a==='ping')return;for(const k in QC)QC[k]={};clearTimeout(window.__pf);window.__pf=setTimeout(precargar,2500)}
+async function precargar(){try{if(OFF||!T)return;const ks=Object.keys(S).filter(k=>!/^(Auditoria|Usuarios)$/.test(k)),ok=k=>QC[k]&&(QC[k].p||(QC[k].ok&&Date.now()-QC[k].t<QTF));let i=0;const w=async()=>{while(i<ks.length){const k=ks[i++];if(!ok(k))await QCfetch(k)}};await Promise.all([w(),w()])}catch(x){}}
 const msg=(t,bad)=>{const m=$('#msg');m.textContent=t;m.className=bad?'bad':'ok';m.hidden=false;setTimeout(()=>m.hidden=true,4500)};
 async function offLogin(){const e=$('#lerr');try{if(await sha($('#u').value.trim()+'|'+$('#p').value)!==HASH)return e.textContent='Usuario o contraseña incorrectos';}catch(x){return e.textContent='Este navegador no permite validar sin conexión: '+x.message}
  OFF=true;S=S0;U={u:'egutierrez',nombre:'E. Gutierrez',rol:'Administrador'};seedOff();document.body.classList.remove('out');$('#lg').hidden=true;$('#app').hidden=false;$('#who').textContent=U.nombre+' · SIN CONEXIÓN (los datos NO se guardan)';menu();go('cc')}
@@ -681,7 +692,7 @@ async function formsPage(m){m.innerHTML='<h3>Conexiones: Google Sheets y Google 
  * No hay que pegarlo en Apps Script. El token (APP_TOKEN) abre el servicio; cada persona además inicia sesión con su usuario. */
 const CK='igc_mant_cloud';
 /* CONEXIÓN INCRUSTADA: la completa «Generar copia con conexión incluida». Con ella el archivo se conecta solo en cualquier equipo. Contiene el token: manténgalo privado. */
-const CONEXION_FIJA={"url":"https://script.google.com/macros/s/AKfycbwrbWsJz9CvHYQUZZvIXdv8RpgkiCZlUNLcG7UbWMPYRYmz-ruu7Ax5eqgoHmAy-6WN/exec","token":"IGC56f21a70b7b781debe3e6d78695a"};
+const CONEXION_FIJA={"url":"","token":""};
 const TOKEN_SUGERIDO='IGC56f21a70b7b781debe3e6d78695a'; /* mismo valor de TOKEN_INICIAL en Code.gs */
 let CNX={};try{CNX=JSON.parse(localStorage.getItem(CK)||'{}')}catch(e){}
 let cnxOrigen='';
@@ -783,8 +794,8 @@ function cnxAviso(){try{if(window.__avc||OFF||!T||!U||U.rol!=='Administrador'||!
  document.body.appendChild(b);$('#avc1').onclick=()=>{cnxGenerar();b.remove()};$('#avc2').onclick=()=>b.remove();$('#avc3').onclick=()=>{try{localStorage.setItem('igc_cnx_aviso','1')}catch(e){}b.remove()}}catch(e){}}
 /* varios computadores a la vez: los datos viven en Google Sheets; este botón (y la actualización automática en reposo) los vuelve a leer */
 let __lastAct=Date.now();['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{__lastAct=Date.now()},true));
-const stampAct=()=>{const s=$('#acts');if(s)s.textContent='Datos de '+new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})};
-async function actualizarDatos(auto){try{if(OFF||!T)return;await go(...cur);if(!auto)msg('Datos actualizados desde Google Sheets')}catch(e){if(!auto)msg('No se pudo actualizar: '+(e&&e.message||e),1)}}
+const stampAct=()=>{const s=$('#acts');if(s){s.textContent='Datos de '+new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});s.style.color='';s.style.fontWeight=''}};
+async function actualizarDatos(auto){try{if(OFF||!T)return;window.__force=1;try{await go(...cur)}finally{window.__force=0}setTimeout(precargar,500);if(!auto)msg('Datos actualizados desde Google Sheets')}catch(e){window.__force=0;if(!auto)msg('No se pudo actualizar: '+(e&&e.message||e),1)}}
 setInterval(()=>{try{if(OFF||!T||$('#app').hidden||document.hidden||document.querySelector('dialog[open]')||Date.now()-__lastAct<120000||cur[0]==='tires'||/^(INPUT|SELECT|TEXTAREA)$/.test((document.activeElement||{}).tagName))return;actualizarDatos(true)}catch(e){}},300000);
 function cnxCopiarEnlace(){if(!cnxValida(CNX))return msg('Primero configure la conexión',1);const l=location.href.split('#')[0]+'#cfg='+cnxCodigo(CNX);
  const f=()=>prompt('Copie el enlace (Ctrl+C):',l);try{navigator.clipboard.writeText(l).then(()=>msg('Enlace de conexión copiado'),f)}catch(e){f()}}
@@ -911,7 +922,7 @@ function inspCarga(b,m){b.innerHTML=`<details open><summary><b>¿Qué se carga?<
   if($('#ig'))$('#ig').onclick=async()=>{try{let a={n:0,u:0};try{a=await cargarPre(await parsePre(f),f.name)}catch(x){console.warn(x)}const c=await cargarInsp(recs);msg(`Inspecciones: ${c.n} nuevas, ${c.u} actualizadas · Odómetro: ${a.n} nuevos, ${a.u} actualizados`);window.itab='pre';inspPage(m,'pre')}catch(x){msg('Error: '+(x&&x.message||x),1)}}}catch(x){msg(x.message||x,1)}}}
 
 /* ---- el menú «Inspecciones» abre esta página en lugar de la lista genérica ---- */
-const __go0=go;go=async function(v,e,f){cnxAviso();if(v==='ent'&&e==='Inspecciones'){cur=[v,e,f];document.querySelectorAll('nav a').forEach((a,i)=>a.classList.toggle('on',M[i][1]===v&&M[i][2]===e&&M[i][3]===f));const m=$('#main');m.innerHTML='Cargando';try{await inspPage(m)}catch(x){m.innerHTML='<p class=b>Error: '+esc(x&&x.message||x)+'</p>'}stampAct();return}const r=await __go0(v,e,f);stampAct();return r};
+const __go0=go;go=async function(v,e,f){cnxAviso();QV.clear();if(!window.__pf0){window.__pf0=1;setTimeout(precargar,800)}if(v==='ent'&&e==='Inspecciones'){cur=[v,e,f];document.querySelectorAll('nav a').forEach((a,i)=>a.classList.toggle('on',M[i][1]===v&&M[i][2]===e&&M[i][3]===f));const m=$('#main');m.innerHTML='Cargando';try{await inspPage(m)}catch(x){m.innerHTML='<p class=b>Error: '+esc(x&&x.message||x)+'</p>'}stampAct();return}const r=await __go0(v,e,f);stampAct();return r};
 
 
 /* ===== IGC v4 · Llantas: rendimiento por kilómetros, marca y posición =====
