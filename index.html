@@ -106,7 +106,7 @@ function buildData(){const H=SEED.hv,tr=['SZW818','TGS004','SRO483'],tl=['S06857
   P(e,'Rotación de llantas (adelante hacia atrás)','Llantas','km','12000','','','Protocolo de mantenimiento periódico IGC 2025','Politica interna');
   P(e,'Revisar aceite del diferencial','Sistema de transmisión','dias','15','',lastOf(e,/ENGRASE/i),'Protocolo IGC: cada 15 días junto con el engrase','Politica interna');
   P(e,'Reemplazo de mangueras del radiador','Sistema de enfriamiento','km','200000','','','Protocolo de mantenimiento periódico IGC 2025','Politica interna');
-  P(e,'Cambio de aceite de motor (horas de uso)','Sistema de lubricación','horas','400','','','Control de cambios de aceite IGC: máximo 400 horas','Politica interna','Pendiente validacion');
+  P(e,'Cambio de aceite de motor (horas de uso)','Sistema de lubricación','horas','500','','','Cambio de aceite: 500 horas (conteo desde el último cambio)','Politica interna','Pendiente validacion');
   P(e,'Valvulina caja de velocidades (Mobil 80W90)','Sistema de transmisión','km','90000','','','Definición de la dirección: cada 90.000 km','Politica interna');
   P(e,'Valvulina diferencial delantero (80W140)','Sistema de transmisión','km','90000','','','Definición de la dirección: cada 90.000 km','Politica interna');
   P(e,'Valvulina diferencial trasero (80W140)','Sistema de transmisión','km','90000','','','Definición de la dirección: cada 90.000 km','Politica interna');
@@ -384,14 +384,14 @@ function tireInfo(code){const l=D.Llantas.find(x=>x.codigo===code),d=$('#dlg');i
 
 // ===================== USO SATRACK, LUBRICACIÓN Y DASHBOARD =====================
 const LUBRE=/^(Cambio de aceite|Valvulina|Cambio de filtro de aire|Filtro aire$)/;
-const DEF={ac_km:13000,ac_h:400,val:90000,pk:1000,ph:40};
+const DEF={ac_km:13000,ac_h:500,val:90000,pk:1000,ph:40};
 const VAL=[{tipo:'Valvulina caja de velocidades',label:'Caja de velocidades (transmisión)',prod:'Mobil 80W90',plan:'Valvulina caja de velocidades'},{tipo:'Valvulina diferencial delantero',label:'Diferencial delantero',prod:'80W140',plan:'Valvulina diferencial delantero'},{tipo:'Valvulina diferencial trasero',label:'Diferencial trasero',prod:'80W140',plan:'Valvulina diferencial trasero'}];
 const iso=d=>d.toISOString().slice(0,10),fmt=n=>Math.round(+n).toLocaleString('es-CO'),fmtD=s=>s?s.split('-').reverse().join('/'):'';
 const addDays=(s,n)=>{const d=new Date(s+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return iso(d)},addMonths=(s,n)=>{const d=new Date(s+'T00:00:00Z');d.setUTCMonth(d.getUTCMonth()+n);return iso(d)};
 const monthsBetween=(a,b)=>{const x=new Date(a+'T00:00:00Z'),y=new Date(b+'T00:00:00Z');return (y.getUTCFullYear()-x.getUTCFullYear())*12+y.getUTCMonth()-x.getUTCMonth()-(y.getUTCDate()<x.getUTCDate()?1:0)},daysBetween=(a,b)=>Math.round((new Date(b+'T00:00:00Z')-new Date(a+'T00:00:00Z'))/864e5);
 const miss=()=>window.srvMiss?'<div class=wn>⚠ El servidor aún no tiene las entidades <b>Uso</b> y <b>Servicios</b>: los datos nuevos no se guardarán hasta agregarlas al esquema de Code.gs (la definición está en Configuración).</div>':'';
 const canW=()=>U.rol==='Administrador'||U.rol!=='Auditor'&&U.rol!=='Gerencia';
-function par(eq,name,def){const p=(D.Plan||[]).find(x=>x.equipo===eq&&(x.actividad||'').indexOf(name)===0);return p&&+p.intervalo>0?+p.intervalo:def}
+function par(eq,name,def){const p=(D.Plan||[]).find(x=>x.equipo===eq&&(x.actividad||'').indexOf(name)===0);if(p&&/^Cambio de aceite/.test(name)&&!/^Configurado/.test(p.fuente||''))return def;return p&&+p.intervalo>0?+p.intervalo:def}
 function estEq(eq){const q=(D.Tractocamiones||[]).find(x=>x.codigo===eq);if(!q)return null;const f=q.fecha_lectura||'',us=(D.Uso||[]).filter(u=>u.equipo===eq&&u.fecha>f),n=v=>v===''||v==null||isNaN(+v)?null:+v,bk=n(q.km_actual),bh=n(q.horas_motor),sk=us.reduce((s,u)=>s+(+u.km_dia||0),0),sh=us.reduce((s,u)=>s+(+u.horas_dia||0),0);
  return{km:bk==null?null:bk+sk,h:bh==null?null:bh+sh,base:f,bk,bh,sk,sh,n:us.length,last:us.map(u=>u.fecha).sort().pop()||''}}
 function avgUse(eq){const t=today(),f=addDays(t,-29),us=(D.Uso||[]).filter(u=>u.equipo===eq&&u.fecha>=f&&u.fecha<=t);if(us.length<3)return null;const mn=us.map(u=>u.fecha).sort()[0],sp=Math.min(30,daysBetween(mn,t)+1);return{km:us.reduce((s,u)=>s+(+u.km_dia||0),0)/sp,h:us.reduce((s,u)=>s+(+u.horas_dia||0),0)/sp,n:us.length}}
