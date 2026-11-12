@@ -98,6 +98,7 @@ const SEED={"hv":{"SZW818":{"placa":"SZW818","marca":"KENWORTH","linea":"T800","
 const NEWS={Uso:['fecha','equipo','km_dia','horas_dia','vel_prom','vel_max','primer_encendido','ultimo_apagado','ubicacion_inicio','ubicacion_fin','fuente'],
 Servicios:['equipo','fecha','km','horas','tipo|Cambio de aceite de motor/Valvulina caja de velocidades/Valvulina diferencial delantero/Valvulina diferencial trasero/Solo filtros','f_aceite|Si/No','f_combustible|Si/No','f_trampa|Si/No','f_agua|Si/No','f_aire|Si/No','producto','detalle_cantidad','responsable','notas']};
 Object.assign(S0,NEWS);
+const ORDX=['hora_inicio','hora_cierre','numero_factura'];window.ensOrd=()=>{[S0,(()=>{try{return S}catch(e){return null}})()].forEach(s=>{if(s&&s.Ordenes)ORDX.forEach(c=>{if(!s.Ordenes.some(x=>x.split('|')[0]===c))s.Ordenes.push(c)})})};ensOrd();
 const HASH='af8c4dc1cfb051552429f0a65ab6aa2f13443b34c6a1a672ed1c76c400477abf';
 async function sha(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 const call0=(a,e,d)=>OFF?offCall(a,e,d||{}):cloud('api',{session:T,a,e,d:d||{}}).then(r=>{QCw(a);return r.data},x=>{const m=x&&x.message||String(x);if(/^Sesi[oó]n/i.test(m))sesionPerdida(m);throw m});
@@ -235,10 +236,10 @@ const menu=()=>{$('#nav').innerHTML=M.map((m,i)=>`<a data-i="${i}">${m[0]}</a>`)
 async function go(v,e,f){cur=[v,e,f];document.querySelectorAll('nav a').forEach((a,i)=>a.classList.toggle('on',M[i][1]===v&&M[i][2]===e&&M[i][3]===f));const m=$('#main'),__lt=setTimeout(()=>{m.style.opacity='.6'},350);
  try{await Promise.all(['Preop','Vencimientos','Acoplamientos'].map(load));if(v==='cc')await ccView(m);else if(v==='pre')await prePage(m);else if(v==='col')colPage(m);else if(v==='forms')await formsPage(m);else if(v==='ent'&&e==='Novedades')await novPage(m);else if(v==='home')await home(m);else if(v==='ent')await list(e,m,f==='open'?r=>!['Cerrada','Cancelada','Rechazada'].includes(r.estado):null);else if(v==='hv')await hv(m);else if(v==='tires')await tires(m);else if(v==='prog')prog(m);else if(v==='alert')await alertView(m);else if(v==='dash')await dash(m);else if(v==='uso')await uso(m);else if(v==='lub')await lub(m);else if(v==='pci')await pciView(m);else if(v==='cal')await cal(m);else if(v==='cost')await cost(m);else cfg(m)}catch(x){m.innerHTML='<p class=b>Error: '+esc(x)+'</p>'}finally{clearTimeout(__lt);m.style.opacity=''}}
 const COLS=e=>S[e].map(c=>{const[n,o]=c.split('|');return{n,o:o&&o.split('/')}}).filter(c=>c.n!=='hash');
-const kind=n=>/fecha|inicio|^fin$|entrega/.test(n)?'date':/^(km|horas|costo|valor|iva|cantidad|existencia|minimo|intervalo|ultimo_valor|prof|presion|ejes|n_llantas)/.test(n)?'number':/descripcion|detalle|actividades|diagnostico|obs|notas|requisito|repuestos|resultado|validacion/.test(n)?'textarea':'text';
+const kind=n=>/^hora_(inicio|cierre)$/.test(n)?'time':/fecha|inicio|^fin$|entrega/.test(n)?'date':/^(km|horas|costo|valor|iva|cantidad|existencia|minimo|intervalo|ultimo_valor|prof|presion|ejes|n_llantas)/.test(n)?'number':/descripcion|detalle|actividades|diagnostico|obs|notas|requisito|repuestos|resultado|validacion/.test(n)?'textarea':'text';
 const bd=(n,v)=>{const c=/^P1$|Vencido|Inmoviliz|No conforme/.test(v)?'r':/^P2$/.test(v)?'o':/^P3$|Próximo|Sin datos|Pendiente/.test(v)?'y':/^P4$|^Operativo|Al día|^Conforme|Cerrada|Instalada/.test(v)?'g':'';return ['prioridad','estado','st','resultado'].includes(n)&&v?`<span class="b ${c}">${/^P[1-4]$/.test(v)&&n==='prioridad'?esc(v)+' '+LV[+v[1]][0]:esc(v)}</span>`:esc(v)};
 function csv(name,cs,rs){const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const t='\ufeff'+[cs.map(q),...rs.map(r=>cs.map(c=>q(r[c])))].map(r=>r.join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download=name+'.csv';a.click()}
-async function list(ent,box,flt){await load(ent);if(ent==='Plan')await Promise.all(['Tractocamiones','Traileres','Uso'].map(load));const du=ent==='Plan'?Object.fromEntries(due().map(x=>[x.id,x])):null;const cs=COLS(ent);let rs=D[ent];if(flt)rs=rs.filter(flt);const sh=ent==='Ordenes'?['equipo','componente','novedad_id','fecha','diagnostico','prioridad','estado','fecha_cierre'].map(n=>cs.find(c=>c.n===n)).filter(Boolean):cs.slice(0,8);const can=U.rol==='Administrador'||U.rol!=='Auditor'&&U.rol!=='Gerencia';
+async function list(ent,box,flt){await load(ent);if(ent==='Plan')await Promise.all(['Tractocamiones','Traileres','Uso'].map(load));const du=ent==='Plan'?Object.fromEntries(due().map(x=>[x.id,x])):null;const cs=COLS(ent);let rs=D[ent];if(flt)rs=rs.filter(flt);const sh=ent==='Ordenes'?['equipo','componente','novedad_id','fecha','hora_inicio','diagnostico','prioridad','estado','fecha_cierre','hora_cierre','numero_factura'].map(n=>cs.find(c=>c.n===n)).filter(Boolean):cs.slice(0,8);const can=U.rol==='Administrador'||U.rol!=='Auditor'&&U.rol!=='Gerencia';
  box.innerHTML=`<h3>${ent}</h3><div class=bar><input id=q placeholder="Buscar…">${can?'<button id=nw>+ Nuevo</button>':''}${ent==='Ordenes'?'<select id=of><option value=a>Abiertas</option><option value=c>Cerradas (realizadas)</option><option value=t>Todas</option></select>':''}<button id=cv class=s>Exportar CSV</button></div><div class=tw><table><tr>${sh.map(c=>`<th>${c.n}`).join('')}${XT[ent]?'<th>'+XT[ent].h:''}<th></tr><tbody id=tb></tbody></table></div>`;
  const draw=()=>{const q=$('#q').value.toLowerCase();$('#tb').innerHTML=rs.filter(r=>{if(ent!=='Ordenes')return true;const v=$('#of').value,ab=!['Cerrada','Cancelada','Rechazada'].includes(r.estado);return v==='t'||(v==='a'?ab:!ab)}).filter(r=>JSON.stringify(r).toLowerCase().includes(q)).map(r=>`<tr>${sh.map(c=>`<td>${bd(c.n,r[c.n])}`).join('')}${XT[ent]?'<td>'+XT[ent].f(r,du):''}<td><button data-i="${r.id}" class=s>${can?'Editar':'Ver'}</button>${ent==='Ordenes'&&can&&!['Cerrada','Cancelada','Rechazada'].includes(r.estado)?` <button data-c="${r.id}">✔ Cerrar OT</button>`:''}`).join('')};draw();$('#q').oninput=draw;if($('#of'))$('#of').onchange=draw;
  $('#tb').onclick=e=>{const i=e.target.dataset.i;if(i)edit(ent,rs.find(r=>r.id===i),can);else if(e.target.dataset.c)closeOT(e.target.dataset.c)};if(can)$('#nw').onclick=()=>edit(ent,null,can);$('#cv').onclick=()=>csv(ent,cs.map(c=>c.n),rs)}
@@ -854,7 +855,27 @@ function colPage(m){window.cq=window.cq||'';window.cg=window.cg||'';m.innerHTML=
 M.splice(M.findIndex(x=>x[1]==='cfg'),0,['🔗 Conexiones Sheets y Forms','forms']);
 const urls=s=>String(s||'').match(/https?:\/\/[^\s,;]+/g)||[];
 const evid=s=>{const u=urls(s);return u.length?u.map((x,i)=>`<a class=lk href="${esc(x)}" target=_blank rel="noopener noreferrer" title="Abrir evidencia (requiere permiso en Drive)">📎${i+1}</a>`).join(' '):'—'};
-async function closeOT(id){const o=(D.Ordenes||[]).find(x=>x.id===id);if(!o)return;if(!confirm('¿Marcar la orden como CERRADA (mantenimiento realizado) en '+o.equipo+'?'))return;try{await call('save','Ordenes',{id:o.id,estado:'Cerrada',fecha_cierre:o.fecha_cierre||today()});if(o.novedad_id){await load('Novedades');const nv=(D.Novedades||[]).find(n=>n.id===o.novedad_id);if(nv&&nv.estado!=='Cerrada')await call('save','Novedades',{id:nv.id,estado:'Cerrada'})}msg('Orden cerrada: el correctivo quedó como realizado');go(...cur)}catch(e){msg(e,1)}}
+async function closeOT(id){const o=(D.Ordenes||[]).find(x=>x.id===id);if(!o)return;try{window.ensOrd&&window.ensOrd()}catch(e){}
+ const d=$('#dlg');d.className='';const f0=String(o.fecha_cierre||'').slice(0,10)||today(),now=new Date().toTimeString().slice(0,5),fo=String(o.fecha||'').slice(0,10),v=x=>esc(x==null?'':x),g=i=>$('#'+i).value.trim();
+ d.innerHTML=`<h3>✔ Cerrar orden de trabajo · ${esc(o.equipo)}</h3><p><small>${esc(o.componente||'')}${o.diagnostico?' · '+esc(String(o.diagnostico).slice(0,100)):''} · abierta el ${fmtD(fo)}${o.hora_inicio?' a las '+esc(o.hora_inicio):''}</small></p>
+ <div class=fg><div><label>Fecha de cierre (el vehículo vuelve a estar disponible)</label><input id=co_f type=date value="${f0}" max="${today()}"></div>
+ <div><label>Hora de salida del taller / cierre</label><input id=co_h type=time value="${v(o.hora_cierre)||now}"></div>
+ <div><label>Hora de ingreso / parada (para medir disponibilidad)</label><input id=co_i type=time value="${v(o.hora_inicio)}"></div>
+ <div><label>Número de factura (soporte del mantenimiento)</label><input id=co_n value="${v(o.numero_factura)}" placeholder="Ej.: FE-12345"></div>
+ <div><label>Costo repuestos ($)</label><input id=co_r type=number min=0 step=any value="${v(o.costo_repuestos)}"></div>
+ <div><label>Costo mano de obra ($)</label><input id=co_m type=number min=0 step=any value="${v(o.costo_mano_obra)}"></div>
+ <div><label>Costo externo / taller ($) — opcional</label><input id=co_e type=number min=0 step=any value="${v(o.costo_externo)}"></div>
+ <div class=w><label>Resultado / observaciones</label><textarea id=co_o rows=2>${v(o.resultado)}</textarea></div></div>
+ <div class=bar style="margin-top:10px"><button id=co_ok>Cerrar orden</button><button class=s id=co_x>Cancelar</button></div><small>Se guardan los costos y la factura en la orden; las horas de ingreso y salida alimentan el indicador de disponibilidad de la flota.</small>`;
+ d.showModal();$('#co_x').onclick=()=>d.close();
+ $('#co_ok').onclick=async()=>{const f=g('co_f'),h=g('co_h'),hi=g('co_i'),r=g('co_r'),mo=g('co_m'),ex=g('co_e');
+  if(!f)return msg('Indique la fecha de cierre',1);if(f>today())return msg('La fecha de cierre no puede ser futura',1);if(fo&&f<fo)return msg('La fecha de cierre no puede ser anterior a la fecha de la orden ('+fmtD(fo)+')',1);
+  if(!h)return msg('Indique la hora de salida / cierre',1);if(fo&&f===fo&&hi&&h<=hi)return msg('La hora de salida debe ser posterior a la hora de ingreso',1);
+  if([r,mo,ex].some(x=>x!==''&&!(+x>=0)))return msg('Los costos deben ser números mayores o iguales a 0',1);
+  if(r===''&&mo===''&&ex===''&&!confirm('No registró costos de repuestos ni de mano de obra. ¿Cerrar la orden sin costos?'))return;
+  try{await call('save','Ordenes',{id:o.id,estado:'Cerrada',fecha_cierre:f,hora_cierre:h,hora_inicio:hi,costo_repuestos:r,costo_mano_obra:mo,costo_externo:ex,numero_factura:g('co_n'),resultado:g('co_o')});
+   if(o.novedad_id){await load('Novedades');const nv=(D.Novedades||[]).find(n=>n.id===o.novedad_id);if(nv&&nv.estado!=='Cerrada')await call('save','Novedades',{id:nv.id,estado:'Cerrada'})}
+   d.close();msg('Orden cerrada: costos y factura registrados');go(...cur)}catch(e){msg(e,1)}}}
 function solN(n){const ot=(D.Ordenes||[]).find(o=>o.novedad_id===n.id&&!['Cancelada','Rechazada'].includes(o.estado));if(n.estado==='Cerrada'||(ot&&ot.estado==='Cerrada'))return'<br><span class="b g" title="La orden de trabajo está cerrada: el correctivo ya fue realizado">✅ Subsanada'+(ot&&ot.fecha_cierre?' · '+fmtD(String(ot.fecha_cierre).slice(0,10)):'')+'</span>';if(ot)return'<br><span class="b y" title="Orden '+esc(ot.id)+'">🔧 En reparación · '+esc(ot.estado)+'</span>';return'<br><small>⏳ Sin orden de trabajo</small>'}
 function crearOT(n){if(!n)return;const ex=(D.Ordenes||[]).find(o=>o.novedad_id===n.id&&!['Cancelada','Rechazada'].includes(o.estado));
  if(ex){msg('Esta novedad ya tiene la orden '+ex.id+': se abre para gestionarla');return edit('Ordenes',ex,canW())}
@@ -1851,82 +1872,143 @@ window.engAlerts=alerts;window.engEvents=events;window.engUnits=units;
 </script>
 
 <script>
-/* ===== Disponibilidad y productividad de la flota: semanal y mensual, con comparativo entre periodos ===== */
+/* ===== Disponibilidad y productividad de la flota v2: medida en HORAS, mapa interactivo por día, semanal y mensual ===== */
 (()=>{
 const OKD=/^\d{4}-\d{2}-\d{2}$/,d10=x=>String(x||'').slice(0,10),RUT=['Plan preventivo','Engrase quincenal'],MS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],p2=n=>String(n).padStart(2,'0');
-const W=window.dsp=window.dsp||{v:'mes',n:12,u:'',meta:90,ot:1,nv:1,sel:''};
-try{const x=localStorage.getItem('igc_meta_disp');if(x&&+x>0)W.meta=+x}catch(e){}
+const W=window.dsp={v:'mes',n:12,u:'',meta:90,ot:1,nv:1,sel:'',ja:0,jb:24,hm:'',day:'',cu:''};
+try{const x=localStorage.getItem('igc_meta_disp');if(x&&+x>0)W.meta=+x;const j=JSON.parse(localStorage.getItem('igc_jor_disp')||'null');if(j&&j.b>j.a&&j.a>=0&&j.b<=24){W.ja=+j.a;W.jb=+j.b}}catch(e){}
 const days=(a,b)=>{const r=[];for(let f=a;f<=b;f=addDays(f,1))r.push(f);return r};
+const di=f=>Math.round(Date.UTC(+f.slice(0,4),+f.slice(5,7)-1,+f.slice(8,10))/864e5);
 const isoWeek=f=>{const d=new Date(f+'T00:00:00Z'),dn=(d.getUTCDay()+6)%7;d.setUTCDate(d.getUTCDate()-dn+3);const y=new Date(Date.UTC(d.getUTCFullYear(),0,4));return 1+Math.round(((d-y)/864e5-3+((y.getUTCDay()+6)%7))/7)};
 const lunes=f=>addDays(f,-((new Date(f+'T00:00:00Z').getUTCDay()+6)%7));
 const pc=x=>x==null?'—':x.toFixed(1)+'%',nf=x=>x==null?'—':Math.round(x).toLocaleString('es-CO'),n1=x=>x==null?'—':(Math.round(x*10)/10).toLocaleString('es-CO');
+const hh=m=>m==null?'—':n1(m/60),hm=m=>p2(Math.floor(m/60))+':'+p2(m%60);
 const dpp=(a,b)=>a==null||b==null?'<span class=lgd>—</span>':`<span style="color:${a-b>=0?'#2e7d32':'#c62828'};font-weight:600">${a-b>=0?'▲ +':'▼ '}${(a-b).toFixed(1)} pp</span>`;
 const dpr=(a,b)=>a==null||b==null||!b?'<span class=lgd>—</span>':`<span style="color:${a-b>=0?'#2e7d32':'#c62828'};font-weight:600">${a-b>=0?'▲ +':'▼ '}${((a-b)/b*100).toFixed(1)}%</span>`;
-let INI='',T='';
+const tmv=x=>{const m=/^\s*(\d{1,2}):(\d{2})/.exec(String(x==null?'':x));if(!m)return null;const v=+m[1]*60+ +m[2];return v<=1440&&+m[2]<60?v:null};
+const nowM=()=>{const d=new Date();return d.getHours()*60+d.getMinutes()};
+const DM=()=>(W.jb-W.ja)*60;
+let INI='',T='',CH=new Map();
 function paradas(U){const map=new Map();U.forEach(u=>u.codes.forEach(c=>map.set(c,u)));const P=[];
- const add=(code,tp,d,h,det)=>{const u=map.get(code);if(!u||!OKD.test(d)||d>T)return;if(!OKD.test(h)||h<d)h=d;if(h>T)h=T;P.push({u,tp,d,h,det})};
+ const add=(code,tp,d,h,s,e,det,x)=>{const u=map.get(code);if(!u||!OKD.test(d)||d>T)return;if(!OKD.test(h)||h<d)h=d;
+  if(h>T){h=T;e=nowM()}
+  if(s==null)s=0;if(e==null||(d===h&&e<=s)){e=1440;x.nh=1}
+  P.push({u,tp,d,h,s,e,det,id:x.id||'',fac:x.fac||'',taller:x.taller||'',nh:!!x.nh})};
  if(W.ot)(D.Ordenes||[]).forEach(o=>{if(!o.equipo||!o.fecha||['Cancelada','Rechazada'].includes(o.estado)||RUT.includes(o.novedad_id))return;
   const fc=d10(o.fecha_cierre),ab=o.estado!=='Cerrada'&&!OKD.test(fc);if(ab&&!['En ejecucion','En prueba','Suspendida'].includes(o.estado))return;
-  const f=d10(o.fecha);add(o.equipo,'Orden de trabajo',f,ab?T:(OKD.test(fc)?fc:f),(o.componente||'')+(o.diagnostico?': '+String(o.diagnostico).slice(0,80):'')+' ('+o.id+')')});
+  const f=d10(o.fecha),h=ab?T:(OKD.test(fc)?fc:f),s=tmv(o.hora_inicio);let e=ab?(h===T?nowM():1440):tmv(o.hora_cierre);const x={id:o.id,fac:o.numero_factura,taller:o.taller};
+  if(s==null||(!ab&&e==null))x.nh=1;
+  add(o.equipo,'Orden de trabajo',f,h,s,e,(o.componente||'')+(o.diagnostico?': '+String(o.diagnostico).slice(0,80):'')+' ('+o.id+')',x)});
  if(W.nv)(D.Novedades||[]).forEach(n=>{if(n.puede_operar!=='No'||!n.fecha)return;let mt={};try{mt=nm(n).m}catch(e){}
   const cer=n.estado==='Cerrada',f=d10(n.fecha);let h=cer?d10(mt.fcierre):T;if(cer&&!OKD.test(h)){const ot=(D.Ordenes||[]).find(o=>o.novedad_id===n.id&&OKD.test(d10(o.fecha_cierre)));h=ot?d10(ot.fecha_cierre):f}
-  add([n.tracto,n.trailer].filter(Boolean).find(c=>map.has(c))||'','Novedad (no puede operar)',f,h,(n.componente||'')+': '+String(n.descripcion||'').slice(0,80)+' ('+n.id+')')});
- const down=new Map(U.map(u=>[u,new Set()])),eps=new Map(U.map(u=>[u,[]]));
- U.forEach(u=>{P.filter(p=>p.u===u).sort((a,b)=>a.d.localeCompare(b.d)).forEach(p=>{const E=eps.get(u),l=E[E.length-1];if(l&&p.d<=addDays(l.h,1)){if(p.h>l.h)l.h=p.h;l.items.push(p)}else E.push({d:p.d,h:p.h,items:[p]});days(p.d,p.h).forEach(x=>down.get(u).add(x))})});
- return{P,down,eps}}
+  add([n.tracto,n.trailer].filter(Boolean).find(c=>map.has(c))||'','Novedad (no puede operar)',f,h,tmv(n.hora),cer?1440:(h===T?nowM():1440),(n.componente||'')+': '+String(n.descripcion||'').slice(0,80)+' ('+n.id+')',{id:n.id})});
+ const ds=new Map(U.map(u=>[u,new Map()])),eps=new Map(U.map(u=>[u,[]]));
+ P.forEach(p=>{const M=ds.get(p.u);days(p.d,p.h).forEach(x=>{const s=x===p.d?p.s:0,e=x===p.h?p.e:1440;if(e<=s)return;(M.get(x)||M.set(x,[]).get(x)).push({s,e,p})})});
+ U.forEach(u=>{const L=P.filter(p=>p.u===u).map(p=>({a:di(p.d)*1440+p.s,b:di(p.h)*1440+p.e,p})).filter(r=>r.b>r.a).sort((x,y)=>x.a-y.a),E=eps.get(u);
+  L.forEach(r=>{const l=E[E.length-1];if(l&&r.a<=l.b){if(r.b>l.b)l.b=r.b;l.items.push(r.p)}else E.push({a:r.a,b:r.b,d:addDays('1970-01-01',Math.floor(r.a/1440)),items:[r.p]})})});
+ return{P,ds,eps}}
+function down(C,u,x){const k=u.label+'|'+x;if(CH.has(k))return CH.get(k);let wa=W.ja*60,wb=W.jb*60;if(x===T)wb=Math.min(wb,nowM());let r;
+ if(wb<=wa)r={win:0,dn:0,segs:[],wa,wb};
+ else{const L=((C.ds.get(u)||new Map()).get(x)||[]).map(z=>({s:Math.max(z.s,wa),e:Math.min(z.e,wb)})).filter(z=>z.e>z.s).sort((a,b)=>a.s-b.s),M=[];
+  L.forEach(z=>{const l=M[M.length-1];if(l&&z.s<=l.e){if(z.e>l.e)l.e=z.e}else M.push({...z})});r={win:wb-wa,dn:M.reduce((s,z)=>s+z.e-z.s,0),segs:M,wa,wb}}
+ CH.set(k,r);return r}
 function usoMap(U){const M=new Map();U.forEach(u=>{if(!u.t)return;const m=new Map();(D.Uso||[]).forEach(r=>{if(r.equipo!==u.t)return;const f=d10(r.fecha);if(!OKD.test(f))return;const x=m.get(f)||{km:0,h:0};x.km+=+r.km_dia||0;x.h+=+r.horas_dia||0;m.set(f,x)});M.set(u.t,m)});return M}
-function stats(U,C,UM,per){let dias=0,dis=0,par=0,ud=0,km=0,hh=0,hasU=false;const a=per.d<INI?INI:per.d,b=per.h>T?T:per.h;
- if(b>=a)U.forEach(u=>{const ds=days(a,b),dn=C.down.get(u);dias+=ds.length;dis+=ds.filter(x=>!dn.has(x)).length;par+=C.eps.get(u).filter(e=>e.d>=a&&e.d<=b).length;
-  const m=UM.get(u.t);if(m)ds.forEach(x=>{const r=m.get(x);if(r){hasU=true;km+=r.km;hh+=r.h;if((r.km>0||r.h>0)&&!dn.has(x))ud++}})});
- return{per,dias,dis,dn:dias-dis,disp:dias?dis/dias*100:null,par,ud,util:hasU&&dis?ud/dis*100:null,km:hasU?km:null,h:hasU?hh:null,kmd:hasU&&dis?km/dis:null,hd:hasU&&dis?hh/dis:null}}
-function perM(off){let y=+T.slice(0,4),m=+T.slice(5,7)-1+off;while(m<0){m+=12;y--}return{k:y+'-'+p2(m+1),label:MS[m]+' '+y,d:`${y}-${p2(m+1)}-01`,h:iso(new Date(Date.UTC(y,m+1,0)))}}
+function stats(U,C,UM,per){let tot=0,dn=0,par=0,dd=0,ud=0,km=0,hr=0,hasU=false;const a=per.d<INI?INI:per.d,b=per.h>T?T:per.h;
+ if(b>=a)U.forEach(u=>{const ds=days(a,b);ds.forEach(x=>{const r=down(C,u,x);if(!r.win)return;tot+=r.win;dn+=r.dn;const av=r.win-r.dn;if(av>0)dd++;
+   const m=UM.get(u.t),q=m&&m.get(x);if(q){hasU=true;km+=q.km;hr+=q.h;if((q.km>0||q.h>0)&&av>0)ud++}});
+  par+=C.eps.get(u).filter(e=>e.d>=a&&e.d<=b).length});
+ const dis=tot-dn;return{per,tot,dis,dn,disp:tot?dis/tot*100:null,par,dd,ud,util:hasU&&dd?ud/dd*100:null,km:hasU?km:null,h:hasU?hr:null,kmd:hasU&&dis?km/(dis/DM()):null}}
+function dayCnt(C,u,a,b){let f=0,p=0;if(b>=a)days(a<INI?INI:a,b>T?T:b).forEach(x=>{const r=down(C,u,x);if(!r.win||!r.dn)return;if(r.dn>=r.win)f++;else p++});return{f,p}}
+function perM(off){let y=+T.slice(0,4),m=+T.slice(5,7)-1+off;while(m<0){m+=12;y--}while(m>11){m-=12;y++}return{k:y+'-'+p2(m+1),label:MS[m]+' '+y,d:`${y}-${p2(m+1)}-01`,h:iso(new Date(Date.UTC(y,m+1,0)))}}
 function perW(off){const s=addDays(lunes(T),7*off);return{k:s,label:'S'+isoWeek(s)+' · '+fmtD(s).slice(0,5),d:s,h:addDays(s,6)}}
 const periodos=()=>{const P=[];for(let i=W.n-1;i>=0;i--)P.push(W.v==='mes'?perM(-i):perW(-i));return P.filter(p=>p.h>=INI)};
 function chart(items,o){const n=items.length||1,w=Math.max(30,Math.min(62,660/n)),H=150,tp=18,mx=o.max||Math.max(1,...items.map(i=>i[1]||0)),W2=n*w+44,rot=n>8;
  let s=`<svg viewBox="0 0 ${W2} ${H+tp+(rot?46:30)}" style="width:100%;max-width:${Math.max(380,W2)}px;background:#fff;border-radius:8px"><line x1="34" y1="${tp+H}" x2="${W2-4}" y2="${tp+H}" stroke="#90a4ae"/>`;
  if(o.meta!=null){const y=tp+H-o.meta/mx*H;s+=`<line x1="34" y1="${y}" x2="${W2-4}" y2="${y}" stroke="#c62828" stroke-dasharray="4 3"/><text x="2" y="${y+3}" font-size="9" fill="#c62828">Meta</text>`}
  items.forEach((it,k)=>{const v=it[1],x=38+k*w,bw=w-8;if(v==null){s+=`<text x="${x+bw/2}" y="${tp+H-4}" font-size="9" text-anchor="middle" fill="#90a4ae">s/d</text>`}
-  else{const hh=Math.max(1,v/mx*H),y=tp+H-hh;s+=`<rect x="${x}" y="${y}" width="${bw}" height="${hh}" rx="3" fill="${o.col(v)}"><title>${esc(it[0])}: ${o.fm(v)}</title></rect><text x="${x+bw/2}" y="${y-3}" font-size="9.5" text-anchor="middle" fill="#344" font-weight="600">${o.fm(v)}</text>`}
+  else{const h=Math.max(1,v/mx*H),y=tp+H-h;s+=`<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="3" fill="${o.col(v)}"><title>${esc(it[0])}: ${o.fm(v)}</title></rect><text x="${x+bw/2}" y="${y-3}" font-size="9.5" text-anchor="middle" fill="#344" font-weight="600">${o.fm(v)}</text>`}
   s+=rot?`<text transform="translate(${x+bw/2+3} ${tp+H+10}) rotate(-40)" text-anchor="end" font-size="9" fill="#455">${esc(it[0])}</text>`:`<text x="${x+bw/2}" y="${tp+H+14}" font-size="9" text-anchor="middle" fill="#455">${esc(it[0])}</text>`});
  return s+'</svg>'}
+const hcol=(win,dn,x)=>!win?'#e3e8ec':dn===0?'#66bb6a':dn>=win?'#e53935':(win-dn)/win>=.75?'#c5e1a5':(win-dn)/win>=.5?'#ffe082':'#ffb74d';
+function donut(v,meta){const c=2*Math.PI*34,f=v==null?0:Math.max(0,Math.min(1,v/100)),col=v==null?'#b0bec5':v>=meta?'#2e7d32':v>=meta-10?'#ef9a1a':'#c62828';
+ return`<svg viewBox="0 0 150 150" style="width:150px;height:150px;cursor:pointer" data-g=1 role="img" aria-label="Disponibilidad del mes: ${pc(v)}. Clic para ver el mapa por día"><title>Clic para ir al mapa de disponibilidad por día</title><circle cx="75" cy="75" r="34" fill="none" stroke="#e3e8ec" stroke-width="14" data-g=1 /><circle cx="75" cy="75" r="34" fill="none" stroke="${col}" stroke-width="14" stroke-dasharray="${(c*f).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 75 75)" stroke-linecap="round" data-g=1 />
+ <text x="75" y="72" text-anchor="middle" font-size="19" font-weight="700" fill="#002e42" data-g=1>${v==null?'—':v.toFixed(0)+'%'}</text><text x="75" y="88" text-anchor="middle" font-size="9" fill="#556" data-g=1>este mes</text>
+ <g transform="translate(51 112)" data-g=1><rect x="0" y="0" width="48" height="12" rx="3" fill="#002e42"/><rect x="32" y="3" width="12" height="6" rx="1" fill="#ce8813"/><circle cx="9" cy="14" r="3.2" fill="#ce8813"/><circle cx="21" cy="14" r="3.2" fill="#ce8813"/><circle cx="37" cy="14" r="3.2" fill="#ce8813"/></g>
+ <text x="75" y="11" text-anchor="middle" font-size="9" fill="#556" data-g=1>horas disponibles</text></svg>`}
+function tl(C,u,x,sel){const r=down(C,u,x);if(!r.win)return`<div style="display:flex;gap:8px;align-items:center;margin:3px 0"><div style="flex:0 0 190px;font-size:12px">${esc(u.label)}</div><div style="flex:1;background:#e3e8ec;height:18px;border-radius:4px"></div><div style="flex:0 0 150px;font-size:11px;color:#667">fuera de jornada / sin datos</div></div>`;
+ const pcnt=m=>(m/1440*100).toFixed(2)+'%',av=r.win-r.dn;
+ return`<div style="display:flex;gap:8px;align-items:center;margin:3px 0;${sel?'background:#fff8e1;border-radius:4px':''}"><div style="flex:0 0 190px;font-size:12px;${sel?'font-weight:700':''}">${esc(u.label)}</div>
+ <div style="flex:1;position:relative;height:18px;background:repeating-linear-gradient(45deg,#e3e8ec,#e3e8ec 4px,#f1f4f6 4px,#f1f4f6 8px);border-radius:4px;overflow:hidden"><div style="position:absolute;left:${pcnt(r.wa)};width:${pcnt(r.wb-r.wa)};top:0;bottom:0;background:#66bb6a"></div>
+ ${r.segs.map(z=>`<div style="position:absolute;left:${pcnt(z.s)};width:${pcnt(z.e-z.s)};top:0;bottom:0;background:#e53935" title="En mantenimiento ${hm(z.s)} – ${hm(z.e)}"></div>`).join('')}</div>
+ <div style="flex:0 0 150px;font-size:11px"><b>${hh(r.dn)} h</b> en taller · <b>${hh(av)} h</b> disp. (${(av/r.win*100).toFixed(0)}%)</div></div>`}
+const axis=()=>`<div style="display:flex;gap:8px;margin-top:2px"><div style="flex:0 0 190px"></div><div style="flex:1;position:relative;height:14px;font-size:9px;color:#556">${[0,3,6,9,12,15,18,21,24].map(h=>`<span style="position:absolute;left:${(h/24*100)}%;transform:translateX(${h===0?0:h===24?-100:-50}%)">${p2(h)}h</span>`).join('')}</div><div style="flex:0 0 150px"></div></div>`;
 async function view(m){await Promise.all(['Tractocamiones','Traileres','Acoplamientos','Ordenes','Novedades','Uso'].map(x=>load(x).catch(()=>{})));
- T=today();const U0=window.engUnits().filter(u=>u.t),extra=window.engUnits().filter(u=>!u.t),U=W.u?U0.filter(u=>u.label===W.u):U0;
+ T=today();CH=new Map();const U0=window.engUnits().filter(u=>u.t),extra=window.engUnits().filter(u=>!u.t),U=W.u?U0.filter(u=>u.label===W.u):U0;
  if(!U0.length){m.innerHTML='<h3>Disponibilidad de la flota</h3><p>Primero registre los tractocamiones y tráileres.</p>';return}
  const fs=[...(D.Uso||[]).map(r=>d10(r.fecha)),...(D.Ordenes||[]).map(o=>d10(o.fecha)),...(D.Novedades||[]).map(n=>d10(n.fecha))].filter(x=>OKD.test(x)&&x<=T).sort();INI=fs[0]||T;
  const C=paradas(U0),UM=usoMap(U0),S=p=>stats(U,C,UM,p),P=periodos(),R=P.map(S),
   mes=S(perM(0)),mesA=S(perM(-1)),sem=S(perW(0)),semA=S(perW(-1)),meta=+W.meta||90,
   col=v=>v>=meta?'#2e7d32':v>=meta-10?'#ef9a1a':'#c62828',
-  eps=U.flatMap(u=>C.eps.get(u)).filter(e=>P.length&&e.d>=(P[0].d<INI?INI:P[0].d)),tot=R.reduce((s,r)=>s+r.dis,0),mttr=eps.length?eps.reduce((s,e)=>s+dd2(e.d,e.h),0)/eps.length:null,mtbf=eps.length?tot/eps.length:null,
-  selK=W.sel&&P.find(p=>p.k===W.sel)?W.sel:(P.length?P[P.length-1].k:''),SP=P.find(p=>p.k===selK),SS=SP?S(SP):null,
-  card=(v,l,sub,c)=>`<div class="card ${c||''}"><b>${v}</b>${l}${sub?'<br><small>'+sub+'</small>':''}</div>`,
-  cc=v=>v==null?'':v>=meta?'g':v>=meta-10?'y':'r';
- function dd2(a,b){return Math.round((new Date(b+'T00:00:00Z')-new Date(a+'T00:00:00Z'))/864e5)+1}
- const unitRows=SP?U.map(u=>{const x=stats([u],C,UM,SP.d?SP:SP);return[esc(u.label),nf(x.dis),nf(x.dn),pc(x.disp),nf(x.par),nf(x.ud),pc(x.util),nf(x.km),n1(x.h),n1(x.kmd)]}):[];
- const det=SP?U.flatMap(u=>C.eps.get(u).flatMap(e=>e.items.map(p=>({...p})))).filter(p=>p.h>=(SP.d<INI?INI:SP.d)&&p.d<=(SP.h>T?T:SP.h)).sort((a,b)=>a.d.localeCompare(b.d)):[];
- m.innerHTML=`<h3>Disponibilidad y productividad de la flota</h3>
- <p><small>La unidad de análisis es el <b>conjunto tractocamión + volco</b>: un día cuenta como <b>indisponible</b> si el tractocamión o su volco estuvieron detenidos por una orden de trabajo (desde su fecha hasta su cierre, o hasta hoy si sigue en ejecución, prueba o suspendida) o por una novedad marcada «No puede operar» sin cerrar. Los días sin parada cuentan como disponibles. La productividad sale de los informes Satrack (km y horas) del tractocamión; utilización = días con uso ÷ días disponibles.</small></p>
+  totD=R.reduce((s,r)=>s+r.dn,0),totA=R.reduce((s,r)=>s+r.dis,0),nE=R.reduce((s,r)=>s+r.par,0),mttr=nE?totD/60/nE:null,mtbf=nE?totA/60/nE:null,
+  selK=W.sel&&P.find(p=>p.k===W.sel)?W.sel:(P.length?P[P.length-1].k:''),SP=P.find(p=>p.k===selK),
+  card=(v,l,sub,c)=>`<div class="card ${c||''}"><b>${v}</b>${l}${sub?'<br><small>'+sub+'</small>':''}</div>`,cc=v=>v==null?'':v>=meta?'g':v>=meta-10?'y':'r';
+ const unitRows=SP?U.map(u=>{const x=stats([u],C,UM,SP),k=dayCnt(C,u,SP.d,SP.h);return[esc(u.label),hh(x.tot),hh(x.dis),hh(x.dn),`<b>${pc(x.disp)}</b>`,nf(k.f),nf(k.p),nf(x.par),nf(x.ud),pc(x.util),nf(x.km),n1(x.h),n1(x.kmd)]}):[];
+ const a0=SP?(SP.d<INI?INI:SP.d):'',b0=SP?(SP.h>T?T:SP.h):'';
+ const det=SP?C.P.filter(p=>U.includes(p.u)&&p.h>=a0&&p.d<=b0).sort((a,b)=>(a.d+p2(0)+String(1e4+a.s)).localeCompare(b.d+p2(0)+String(1e4+b.s))):[];
+ // ---- mapa por día ----
+ const HK=W.hm&&/^\d{4}-\d{2}$/.test(W.hm)?W.hm:T.slice(0,7),y=+HK.slice(0,4),mo=+HK.slice(5,7)-1,nd=new Date(Date.UTC(y,mo+1,0)).getUTCDate(),HD=Array.from({length:nd},(_,i)=>HK+'-'+p2(i+1)),
+  hmOpts=[];for(let i=23;i>=0;i--)hmOpts.push(perM(-i));
+ const cell=(u,x)=>{const r=down(C,u,x),bad=x<INI||x>T||!r.win;const col=bad?'#e3e8ec':hcol(r.win,r.dn),sel=W.day===x&&W.cu===u.label;
+  const tip=bad?fmtD(x)+': sin datos':u.label+' · '+fmtD(x)+': '+hh(r.dn)+' h en taller, '+hh(r.win-r.dn)+' h disponibles ('+((r.win-r.dn)/r.win*100).toFixed(0)+'%)';
+  return`<td class=hmc data-c="${esc(u.label)}|${x}" title="${esc(tip)}" style="background:${col};${sel?'outline:3px solid #002e42;outline-offset:-2px;':''}">${bad||!r.dn?'':r.dn>=r.win?'✖':Math.round(r.dn/60)}</td>`};
+ const frow=HD.map(x=>{let t=0,d=0;U.forEach(u=>{const r=down(C,u,x);t+=r.win;d+=r.dn});const bad=x<INI||x>T||!t;return`<td class=hmc data-c="|${x}" style="background:#f4f8fb;font-size:10px;font-weight:600;color:${bad?'#90a4ae':'#002e42'}" title="${bad?'':'Flota: '+((t-d)/t*100).toFixed(0)+'% disponible'}">${bad?'':Math.round((t-d)/t*100)}</td>`}).join('');
+ const dayPanel=W.day&&OKD.test(W.day)?(()=>{const x=W.day,ps=C.P.filter(p=>U.includes(p.u)&&p.d<=x&&p.h>=x&&(!W.cu||p.u.label===W.cu)).sort((a,b)=>(x===a.d?a.s:0)-(x===b.d?b.s:0));
+  return`<div style="background:#fff;border-radius:10px;padding:10px;margin:8px 0;border-left:5px solid #ce8813"><div class=bar style="margin:0 0 6px"><h4 style="margin:0">⏱ Línea de tiempo del ${fmtD(x)}${W.cu?' · '+esc(W.cu):' · toda la flota'}</h4><button class=s data-x=1>Cerrar</button></div>
+  <small>Verde = disponible · Rojo = en taller / detenido · Rayado = fuera de la jornada operativa (${p2(W.ja)}:00–${p2(W.jb)}:00).</small>${U.map(u=>tl(C,u,x,u.label===W.cu)).join('')}${axis()}
+  <div style="margin-top:8px">${ps.length?TB(['Conjunto','Origen','Desde','Hasta','Horas','Factura','Detalle'],ps.map(p=>{const s=x===p.d?p.s:0,e=x===p.h?p.e:1440;return[esc(p.u.label),esc(p.tp)+(p.nh?' <span title="Sin hora registrada: se asumió día completo desde/hasta el límite" style="color:#c62828">⚠</span>':''),hm(s),hm(e),hh(e-s),esc(p.fac)||'—',esc(p.det)]})):'<small>Sin paradas registradas este día: el vehículo se considera operativo.</small>'}</div></div>`})():'';
+ const nSin=C.P.filter(p=>p.nh&&p.tp==='Orden de trabajo'&&p.h>=(P.length?P[0].d:INI)).length;
+ m.innerHTML=`<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;background:#fff;border-radius:12px;padding:12px;margin-bottom:10px"><div style="flex:0 0 150px;text-align:center">${donut(mes.disp,meta)}</div><div style="flex:1 1 320px"><h3 style="margin-top:0">Disponibilidad y productividad de la flota <small style="font-weight:400">· medida en horas</small></h3>
+ <p><small>La unidad de análisis es el <b>conjunto tractocamión + volco</b>. Una hora cuenta como <b>no disponible</b> cuando el tractocamión o su volco están en una orden de trabajo (desde la <b>hora de ingreso</b> de la fecha de inicio hasta la <b>hora de salida</b> de la fecha de cierre; si sigue abierta, hasta ahora) o en una novedad «No puede operar» sin cerrar. Si el vehículo trabajó hasta el mediodía y en la tarde fue al taller, solo se descuentan las horas de la tarde. <b>Disponibilidad = horas disponibles ÷ horas de la jornada operativa.</b> Si no se registra nada en un día, se asume operativo. Toque el círculo o el mapa para ver cada día.</small></p></div></div>
  <div class=bar><select id=ds_v><option value=mes ${W.v==='mes'?'selected':''}>Vista mensual</option><option value=sem ${W.v==='sem'?'selected':''}>Vista semanal</option></select>
  <select id=ds_n>${(W.v==='mes'?[6,12,24]:[8,12,26]).map(x=>`<option value=${x} ${W.n===x?'selected':''}>Últimos ${x} ${W.v==='mes'?'meses':'semanas'}</option>`).join('')}</select>
  <select id=ds_u><option value="">Toda la flota</option>${U0.map(u=>`<option ${u.label===W.u?'selected':''}>${esc(u.label)}</option>`).join('')}</select>
- <label style="display:flex;align-items:center;gap:5px;font-size:13px">Meta de disponibilidad (%) <input id=ds_m type=number min=1 max=100 value="${meta}" style="width:70px"></label>
+ <label style="display:flex;align-items:center;gap:5px;font-size:13px">Meta (%) <input id=ds_m type=number min=1 max=100 value="${meta}" style="width:64px"></label>
+ <label style="display:flex;align-items:center;gap:5px;font-size:13px" title="Horas del día en que el vehículo debería poder trabajar. Por defecto 0–24 h; ajústelo si su operación es, por ejemplo, de 6 a 18 h.">Jornada operativa <select id=ds_ja style="width:auto">${Array.from({length:24},(_,i)=>`<option value=${i} ${W.ja===i?'selected':''}>${p2(i)}:00</option>`).join('')}</select> a <select id=ds_jb style="width:auto">${Array.from({length:24},(_,i)=>`<option value=${i+1} ${W.jb===i+1?'selected':''}>${p2(i+1)}:00</option>`).join('')}</select></label>
  <label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type=checkbox id=ds_ot ${W.ot?'checked':''} style="width:auto"> Órdenes de trabajo</label><label style="display:flex;align-items:center;gap:4px;font-size:13px"><input type=checkbox id=ds_nv ${W.nv?'checked':''} style="width:auto"> Novedades «no puede operar»</label></div>
- <div class=cards>${card(pc(mes.disp),'Disponibilidad · mes en curso',dpp(mes.disp,mesA.disp)+' vs mes anterior ('+pc(mesA.disp)+')',cc(mes.disp))}${card(pc(sem.disp),'Disponibilidad · semana actual',dpp(sem.disp,semA.disp)+' vs semana anterior ('+pc(semA.disp)+')',cc(sem.disp))}${card(pc(mes.util),'Utilización · mes en curso',dpp(mes.util,mesA.util)+' vs mes anterior ('+pc(mesA.util)+')')}${card(n1(mes.kmd),'Km por día disponible · mes',dpr(mes.kmd,mesA.kmd)+' vs mes anterior ('+n1(mesA.kmd)+')')}${card(nf(mes.par),'Paradas · mes en curso','mes anterior: '+nf(mesA.par),mes.par>mesA.par?'r':'')}${card(n1(mttr),'MTTR · días promedio por parada','en el rango mostrado')}${card(n1(mtbf),'MTBF · días disponibles entre paradas','en el rango mostrado')}</div>
+ <div class=cards>${card(pc(mes.disp),'Disponibilidad · mes en curso',dpp(mes.disp,mesA.disp)+' vs mes anterior ('+pc(mesA.disp)+')',cc(mes.disp))}${card(pc(sem.disp),'Disponibilidad · semana actual',dpp(sem.disp,semA.disp)+' vs semana anterior ('+pc(semA.disp)+')',cc(sem.disp))}${card(hh(mes.dn)+' h','Horas en taller · mes en curso','mes anterior: '+hh(mesA.dn)+' h',mes.dn>mesA.dn?'r':'')}${card(pc(mes.util),'Utilización · mes en curso',dpp(mes.util,mesA.util)+' vs mes anterior ('+pc(mesA.util)+')')}${card(n1(mes.kmd),'Km por día disponible · mes',dpr(mes.kmd,mesA.kmd)+' vs mes anterior ('+n1(mesA.kmd)+')')}${card(nf(mes.par),'Paradas · mes en curso','mes anterior: '+nf(mesA.par),mes.par>mesA.par?'r':'')}${card(n1(mttr),'MTTR · horas promedio por parada','en el rango mostrado')}${card(n1(mtbf),'MTBF · horas disponibles entre paradas','en el rango mostrado')}</div>
+ <div id=hm_box style="background:#fff;border-radius:12px;padding:10px;margin:10px 0"><div class=bar style="margin:0 0 6px"><h4 style="margin:0">🗓 Mapa de disponibilidad por día</h4><button class=s data-hm=-1>◀</button><select id=ds_hm>${hmOpts.map(p=>`<option value="${p.k}" ${p.k===HK?'selected':''}>${p.label}</option>`).join('')}</select><button class=s data-hm=1>▶</button><button class=s data-hm=0>Hoy</button></div>
+ <small>Cada casilla es un día de un conjunto. El número es la cantidad de <b>horas en taller</b> ese día; ✖ = todo el día detenido. Haga clic en una casilla (o en el número del día) para ver la línea de tiempo por horas y las órdenes que lo afectaron.</small>
+ <div class=tw style="margin-top:6px"><table style="border-collapse:separate;border-spacing:2px;font-size:11px;width:auto"><tr><th style="text-align:left;min-width:150px">Conjunto</th>${HD.map(x=>`<th class=hmh data-c="|${x}" style="cursor:pointer;padding:2px 0;min-width:24px;text-align:center;${W.day===x&&!W.cu?'background:#ce8813;color:#fff;border-radius:3px':''}" title="Ver el día completo">${+x.slice(8)}</th>`).join('')}<th>Disp. mes</th><th>H taller</th></tr>
+ ${U.map(u=>{const s=stats([u],C,UM,{d:HD[0],h:HD[nd-1]});return`<tr><td style="white-space:nowrap;font-weight:600;font-size:12px">${esc(u.label)}</td>${HD.map(x=>cell(u,x)).join('')}<td style="font-weight:700;white-space:nowrap">${pc(s.disp)}</td><td>${hh(s.dn)}</td></tr>`}).join('')}
+ <tr><td style="font-size:11px;color:#556">% flota disponible</td>${frow}<td></td><td></td></tr></table></div>
+ <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;margin-top:6px;color:#344">${[['#66bb6a','100% disponible'],['#c5e1a5','≥ 75%'],['#ffe082','50–75%'],['#ffb74d','< 50%'],['#e53935','Todo el día en taller'],['#e3e8ec','Sin datos / futuro']].map(z=>`<span><span style="display:inline-block;width:12px;height:12px;background:${z[0]};border-radius:2px;vertical-align:-2px"></span> ${z[1]}</span>`).join('')}</div></div>
+ ${dayPanel}
  <h4>Disponibilidad por ${W.v==='mes'?'mes':'semana'} <small>(línea roja = meta ${meta}%)</small></h4>${chart(R.map(r=>[r.per.label,r.disp]),{max:100,meta,col,fm:v=>v.toFixed(1)+'%'})}
- <h4>Utilización por ${W.v==='mes'?'mes':'semana'} <small>(días con uso ÷ días disponibles)</small></h4>${chart(R.map(r=>[r.per.label,r.util]),{max:100,col:()=>'#002e42',fm:v=>v.toFixed(0)+'%'})}
+ <h4>Horas en taller por ${W.v==='mes'?'mes':'semana'}</h4>${chart(R.map(r=>[r.per.label,r.dn/60]),{col:()=>'#e53935',fm:v=>nf(v)+' h'})}
+ <h4>Utilización por ${W.v==='mes'?'mes':'semana'} <small>(días con uso ÷ días con disponibilidad)</small></h4>${chart(R.map(r=>[r.per.label,r.util]),{max:100,col:()=>'#002e42',fm:v=>v.toFixed(0)+'%'})}
  <h4>Kilómetros recorridos por ${W.v==='mes'?'mes':'semana'}</h4>${chart(R.map(r=>[r.per.label,r.km]),{col:()=>'#ce8813',fm:v=>nf(v)})}
  <h4>Comparativo ${W.v==='mes'?'mes a mes':'semana a semana'} <small>(haga clic en un periodo para ver su detalle)</small></h4>
- ${TB(['Periodo','Días-conjunto','Días disponibles','Días en mantenimiento','Disponibilidad','Δ vs anterior','Paradas','Días con uso','Utilización','Δ utilización','Km','Km por día disp.','Δ km/día','Horas'],R.map((r,i)=>{const a=R[i-1];return[`<a class=lk data-p="${esc(r.per.k)}" style="${r.per.k===selK?'font-weight:700;text-decoration:underline':''}">${esc(r.per.label)}</a>`,nf(r.dias),nf(r.dis),nf(r.dn),`<b>${pc(r.disp)}</b> ${r.disp==null?'':dot(r.disp>=meta?4:r.disp>=meta-10?3:1,'')}`,a?dpp(r.disp,a.disp):'—',nf(r.par),nf(r.ud),pc(r.util),a?dpp(r.util,a.util):'—',nf(r.km),n1(r.kmd),a?dpr(r.kmd,a.kmd):'—',n1(r.h)]}).reverse())}
- ${SP?`<h4>Detalle por conjunto · ${esc(SP.label)}</h4>${TB(['Conjunto','Días disponibles','Días en mantenimiento','Disponibilidad','Paradas','Días con uso','Utilización','Km','Horas','Km por día disp.'],unitRows)}
- <h4>Paradas que afectaron la disponibilidad · ${esc(SP.label)}</h4>${det.length?TB(['Conjunto','Origen','Desde','Hasta','Días','Detalle'],det.map(p=>[esc(p.u.label),esc(p.tp),fmtD(p.d),fmtD(p.h),nf(dd2(p.d,p.h)),esc(p.det)])):'<p><small>Sin paradas registradas en este periodo.</small></p>'}`:''}
- <p><small>Notas: (1) El historial anterior al primer registro del sistema (${fmtD(INI)}) no se analiza. (2) Una orden cerrada sin fecha de cierre cuenta como 1 día; los cierres rápidos de rutina (engrase y preventivos de cierre rápido) no cuentan como parada. (3) Si una orden permaneció abierta con el vehículo operando, desmarque «Órdenes de trabajo» o corrija sus fechas para no sobrestimar la indisponibilidad. (4) MTTR = duración promedio de las paradas; MTBF = días disponibles ÷ número de paradas.${extra.length?' (5) No se incluyen en el indicador los volcos sin tractocamión asignado: '+extra.map(x=>esc(x.v)).join(', ')+'.':''}</small></p>`;
- m.onclick=e=>{const a=e.target.closest('[data-p]');if(a){W.sel=a.dataset.p;view(m)}};
- m.onchange=e=>{const i=e.target.id;if(!/^ds_/.test(i))return;if(i==='ds_v'){W.v=e.target.value;W.n=12}else if(i==='ds_n')W.n=+e.target.value;else if(i==='ds_u')W.u=e.target.value;else if(i==='ds_m'){W.meta=Math.min(100,Math.max(1,+e.target.value||90));try{localStorage.setItem('igc_meta_disp',W.meta)}catch(x){}}else if(i==='ds_ot')W.ot=e.target.checked?1:0;else if(i==='ds_nv')W.nv=e.target.checked?1:0;if(i!=='ds_n'&&i!=='ds_u')W.sel='';view(m)}}
-M.splice(2,0,['Disponibilidad de flota','disp']);
-const _go2=window.go;window.go=async function(v,e,f){if(v!=='disp')return _go2.apply(this,arguments);
+ ${TB(['Periodo','Horas de jornada','Horas disponibles','Horas en mantenimiento','Disponibilidad','Δ vs anterior','Paradas','Días con uso','Utilización','Δ utilización','Km','Km por día disp.','Δ km/día','Horas motor'],R.map((r,i)=>{const a=R[i-1];return[`<a class=lk data-p="${esc(r.per.k)}" style="${r.per.k===selK?'font-weight:700;text-decoration:underline':''}">${esc(r.per.label)}</a>`,hh(r.tot),hh(r.dis),hh(r.dn),`<b>${pc(r.disp)}</b> ${r.disp==null?'':dot(r.disp>=meta?4:r.disp>=meta-10?3:1,'')}`,a?dpp(r.disp,a.disp):'—',nf(r.par),nf(r.ud),pc(r.util),a?dpp(r.util,a.util):'—',nf(r.km),n1(r.kmd),a?dpr(r.kmd,a.kmd):'—',n1(r.h)]}).reverse())}
+ ${SP?`<h4>Detalle por conjunto · ${esc(SP.label)}</h4>${TB(['Conjunto','Horas de jornada','Horas disponibles','Horas en taller','Disponibilidad','Días completos en taller','Días parciales en taller','Paradas','Días con uso','Utilización','Km','Horas motor','Km por día disp.'],unitRows)}
+ <h4>Paradas que afectaron la disponibilidad · ${esc(SP.label)}</h4>${det.length?TB(['Conjunto','Origen','Desde','Hasta','Horas','Factura','Detalle'],det.map(p=>[esc(p.u.label),esc(p.tp)+(p.nh?' <span title="Sin hora de ingreso o salida registrada: se asumió el límite del día" style="color:#c62828">⚠</span>':''),fmtD(p.d)+' '+hm(p.s),fmtD(p.h)+' '+hm(p.e),n1(((di(p.h)*1440+p.e)-(di(p.d)*1440+p.s))/60),esc(p.fac)||'—',esc(p.det)])):'<p><small>Sin paradas registradas en este periodo.</small></p>'}`:''}
+ <p><small>Notas: (1) El historial anterior al primer registro del sistema (${fmtD(INI)}) no se analiza. (2) Para medir bien, registre en cada orden de trabajo la <b>hora de ingreso</b> (hora_inicio) y la <b>hora de salida</b> (hora_cierre). ${nSin?`<b style="color:#c62828">Hay ${nSin} orden(es) del rango sin alguna de esas horas (marcadas con ⚠)</b>: se asumió inicio a las 00:00 y/o fin a las 24:00 de ese día, lo que puede subestimar la disponibilidad.`:'Todas las órdenes del rango tienen horas registradas.'} (3) Los cierres rápidos de rutina (engrase y preventivos de cierre rápido) no cuentan como parada. (4) Si una orden permaneció abierta con el vehículo operando, desmarque «Órdenes de trabajo» o corrija sus fechas. (5) MTTR = horas en taller ÷ paradas; MTBF = horas disponibles ÷ paradas. (6) Utilización = días con km u horas de motor (Satrack) ÷ días con alguna hora disponible.${extra.length?' (7) No se incluyen en el indicador los volcos sin tractocamión asignado: '+extra.map(x=>esc(x.v)).join(', ')+'.':''}</small></p>`;
+ m.onclick=e=>{const g=e.target.closest('[data-g]');if(g){const b=document.getElementById('hm_box');if(b)b.scrollIntoView({behavior:'smooth',block:'start'});return}
+  const c=e.target.closest('[data-c]');if(c){const[l,x]=c.dataset.c.split('|');if(W.day===x&&W.cu===l){W.day='';W.cu=''}else{W.day=x;W.cu=l}return view(m)}
+  if(e.target.closest('[data-x]')){W.day='';W.cu='';return view(m)}
+  const h=e.target.closest('[data-hm]');if(h){const v=+h.dataset.hm;if(v===0)W.hm='';else{let yy=y,mm=mo+v;while(mm<0){mm+=12;yy--}while(mm>11){mm-=12;yy++}W.hm=yy+'-'+p2(mm+1)}return view(m)}
+  const a=e.target.closest('[data-p]');if(a){W.sel=a.dataset.p;view(m)}};
+ m.onchange=e=>{const i=e.target.id;if(!/^ds_/.test(i))return;if(i==='ds_v'){W.v=e.target.value;W.n=12}else if(i==='ds_n')W.n=+e.target.value;else if(i==='ds_u'){W.u=e.target.value;W.cu=''}else if(i==='ds_hm')W.hm=e.target.value;
+  else if(i==='ds_m'){W.meta=Math.min(100,Math.max(1,+e.target.value||90));try{localStorage.setItem('igc_meta_disp',W.meta)}catch(x){}}
+  else if(i==='ds_ja'||i==='ds_jb'){let a=+$('#ds_ja').value,b=+$('#ds_jb').value;if(b<=a){msg('La jornada debe terminar después de que empieza',1);return view(m)}W.ja=a;W.jb=b;try{localStorage.setItem('igc_jor_disp',JSON.stringify({a,b}))}catch(x){}}
+  else if(i==='ds_ot')W.ot=e.target.checked?1:0;else if(i==='ds_nv')W.nv=e.target.checked?1:0;if(i==='ds_v'||i==='ds_ot'||i==='ds_nv')W.sel='';view(m)}}
+M.splice(2,0,['<svg viewBox="0 0 26 24" width="20" height="18" style="vertical-align:-3px;margin-right:4px" aria-hidden="true"><rect x="1" y="6" width="14" height="8" rx="2" fill="#002e42"/><rect x="15" y="9" width="8" height="5" rx="1" fill="#ce8813"/><circle cx="6" cy="16" r="2.4" fill="#ce8813"/><circle cx="18" cy="16" r="2.4" fill="#ce8813"/><circle cx="19" cy="5" r="4.6" fill="#fff" stroke="#002e42" stroke-width="1.6"/><path d="M19 2.6V5l1.7 1" stroke="#002e42" stroke-width="1.3" fill="none"/></svg>Disponibilidad de flota','disp']);
+const _go2=window.go;window.go=async function(v,e,f){try{window.ensOrd&&window.ensOrd()}catch(x){}if(v!=='disp')return _go2.apply(this,arguments);
  cur=[v,e,f];document.querySelectorAll('nav a').forEach((a,i)=>a.classList.toggle('on',M[i][1]===v&&M[i][2]===e&&M[i][3]===f));
  const m=$('#main');try{await view(m)}catch(x){m.innerHTML='<p class=b>Error: '+esc(x&&x.message||x)+'</p>'}};
 try{if($('#nav')&&$('#nav').children.length)menu()}catch(e){}
+window.dspView=view;
 })();
+
 </script>
 
 </body></html>
