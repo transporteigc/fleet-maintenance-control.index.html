@@ -1681,7 +1681,7 @@ async function idbGet0(id){try{const db=await IDB();return await new Promise((ok
 /* Devuelve {ref,local}: ref es un enlace de Drive, «idb:ID#nombre» (archivo guardado en este navegador, sin límite) o una miniatura (último recurso) */
 async function subirEv(f){const pdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name),img=/^image\//.test(f.type);const vid=/^video\//.test(f.type)||/\.(mp4|mov|m4v|webm|3gp|avi|mkv)$/i.test(f.name||'');if(!pdf&&!img&&!vid)return null;const nom=f.name||('evidencia'+(pdf?'.pdf':'.jpg'));
  if(!window.__noSubir&&!OFF){try{let b64;if(pdf||(vid&&f.size<=20e6))b64=await new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=ko;r.readAsDataURL(f)});else{const s=await shrink(f,2000,1800000);if(s)b64=s.split(',')[1]}
-  if(b64){const r=await call('subir','Novedades',{nombre:nom,mime:pdf?'application/pdf':vid?(f.type||'video/mp4'):'image/jpeg',data:b64}),u=typeof r==='string'?r:r&&(r.url||r.link);if(u&&/^https?:/.test(u))return{ref:u}}}catch(e){window.__subFail=(window.__subFail||0)+1;if(window.__subFail>=2)window.__noSubir=1}}
+  if(b64){const r=await call('subir','Novedades',{nombre:nom,mime:pdf?'application/pdf':vid?(f.type||'video/mp4'):'image/jpeg',data:b64}),u=typeof r==='string'?r:r&&(r.url||r.link);if(u&&/^https?:/.test(u)){window.__subMsg='';return{ref:u}}}}catch(e){window.__subFail=(window.__subFail||0)+1;window.__subMsg=String(e&&e.message||e);if(window.__subFail>=2)window.__noSubir=1}}
  const id=await idbPut(f,nom);if(id){const up=await window.evUp(id,f,nom);return{ref:'idb:'+id+'#'+encodeURIComponent(nom),local:up?0:1}}
  if(img){const s=await shrink(f,640,14000);if(s)return{ref:s,local:1}}
  throw new Error('el navegador no permitió guardar el archivo')}
@@ -1692,7 +1692,7 @@ const evHydrate=root=>root.querySelectorAll('img[data-idb]').forEach(im=>{const 
 function evOpen(list,i,title){if(!list||!list.length)return;let d=document.getElementById('evv');if(!d){d=document.createElement('dialog');d.id='evv';document.body.appendChild(d)}let blob=null;
  const fin=()=>{if(blob){URL.revokeObjectURL(blob);blob=null}},show=async()=>{fin();const u=list[i];d.innerHTML=`<div class=evh><b>${esc(title||'Evidencia')}</b><span>${i+1} / ${list.length}</span><span style="flex:1"></span><button class=s id=evp ${list.length<2?'disabled':''}>◀</button><button class=s id=evn ${list.length<2?'disabled':''}>▶</button><a class=lk id=evo target=_blank rel=noopener hidden>↗ Abrir en pestaña</a><a class=lk id=evd hidden>⬇ Descargar</a><button class=d id=evx>✕</button></div><div class=evb id=evb>Cargando…</div>`;
   let src='',kind='img',nom='evidencia',open=null,b=d.querySelector('#evb');
-  if(/^idb:/.test(u)){const r=await idbGet(u.slice(4).split('#')[0]);if(!r||!r.blob){b.innerHTML='<p style="padding:20px">Este archivo solo estaba guardado en otro equipo o navegador y aún no está en la nube. Ábralo una vez desde ese equipo (se sube solo) o vuelva a cargarlo.</p>';wire();return}blob=URL.createObjectURL(r.blob);src=blob;nom=r.name||nom;kind=(r.mime==='application/pdf'||/\.pdf$/i.test(nom))?'pdf':(/^video\//.test(r.mime||'')||/\.(mp4|mov|m4v|webm|3gp|avi|mkv)$/i.test(nom))?'video':'img'}
+  if(/^idb:/.test(u)){const r=await idbGet(u.slice(4).split('#')[0]);if(!r||!r.blob){b.innerHTML='<div style="padding:20px"><p>Este archivo todavía no está en la nube: quedó guardado solo en el navegador del equipo donde se cargó. Abra la aplicación en ese equipo, entre a «Novedades» y espere el aviso «quedaron guardadas en la nube»; después se verá desde cualquier dispositivo. (Los PDF y videos de más de 1,5 MB no se pueden subir: vuelva a cargarlos reducidos.)</p><button class=s id=evr>↻ Reintentar</button></div>';wire();const rb=d.querySelector('#evr');if(rb)rb.onclick=()=>{b.textContent='Buscando en la nube…';show()};return}blob=URL.createObjectURL(r.blob);src=blob;nom=r.name||nom;kind=(r.mime==='application/pdf'||/\.pdf$/i.test(nom))?'pdf':(/^video\//.test(r.mime||'')||/\.(mp4|mov|m4v|webm|3gp|avi|mkv)$/i.test(nom))?'video':'img'}
   else if(/^data:/.test(u)){kind=/^data:application\/pdf/.test(u)?'pdf':'img';if(kind==='pdf'){try{const bs=atob(u.split(',')[1]),a=new Uint8Array(bs.length);for(let k=0;k<bs.length;k++)a[k]=bs.charCodeAt(k);blob=URL.createObjectURL(new Blob([a],{type:'application/pdf'}));src=blob}catch(e){src=u}}else src=u;nom='evidencia.'+(kind==='pdf'?'pdf':'jpg')}
   else{const id=(u.match(/\/d\/([\w-]+)/)||u.match(/[?&]id=([\w-]+)/)||[])[1];open=u;if(/drive\.google\.com|docs\.google\.com/.test(u)&&id){kind='frame';src='https://drive.google.com/file/d/'+id+'/preview'}else if(/\.(jpe?g|png|gif|webp|bmp)(\?|$)/i.test(u)){kind='img';src=u}else{kind='frame';src=u}}
   b.innerHTML=kind==='video'?`<video src="${esc(src)}" controls playsinline style="max-width:100%;max-height:100%"></video>`:kind==='img'?`<img src="${esc(src)}" alt="Evidencia">`:`<iframe src="${esc(src)}" allowfullscreen></iframe>`;
@@ -1721,7 +1721,7 @@ ${ta('solucion','Trabajo realizado / solución',M.solucion,1)}<div class=w><labe
  const FF=()=>urls(o.evidencias).filter(u=>!E[0].includes(u)),draw=()=>{[0,1].forEach(k=>{$('#nth'+k).innerHTML=E[k].map((u,i)=>evChip(u,k,i,can)).join('')});const ff=FF();$('#nthf').innerHTML=ff.length?'<small>Enviadas por el conductor (Google Forms):</small><br>'+ff.map((u,i)=>evChip(u,2,i,false)).join(''):'';evHydrate(d)};draw();
  d.onclick=e=>{const x=e.target.dataset.x;if(x){E[+x[0]].splice(+x.slice(1),1);draw();return}const v=e.target.closest('[data-v]');if(v){const[k,i]=v.dataset.v.split(',').map(Number);evOpen(k===2?FF():E[k],i,k===2?'Evidencia del conductor':k?'Evidencia de que fue subsanada':'Evidencia de la novedad')}};
  [0,1].forEach(k=>$('#nf'+k).onchange=async e=>{const fs=[...e.target.files];e.target.value='';let j=0,bad=0,loc=0;for(const f of fs){msg('Cargando '+(++j)+' de '+fs.length+'…');try{const u=await subirEv(f);if(u){E[k].push(u.ref);if(u.local)loc++}else{bad++;msg('«'+f.name+'»: solo se admiten fotos, videos y PDF',1)}}catch(x){bad++;msg('«'+f.name+'»: '+(x&&x.message||x),1)}draw()}
-  if(!bad)msg(fs.length+' archivo(s) cargado(s). Pulse Guardar para registrarlos.');if(loc)$('#nthw'+k).textContent='⚠ '+loc+' archivo(s) quedaron guardados solo en este navegador (los PDF y videos, o el servidor aún no tiene la entidad «Evidencias»: agréguela en Code.gs, Configuración → «Entidades nuevas»). Se ven aquí, pero no desde otros equipos.'});
+  if(!bad)msg(fs.length+' archivo(s) cargado(s). Pulse Guardar para registrarlos.');if(loc)$('#nthw'+k).textContent='⚠ '+loc+' archivo(s) quedaron guardados solo en este navegador (pesan más de 1,5 MB, falló la conexión o el servidor aún no tiene la entidad «Evidencias»: agréguela en Code.gs, Configuración → «Entidades nuevas»). Se ven aquí; los que pesen menos de 1,5 MB se subirán a la nube al abrir «Novedades» en este equipo.'+(window.__subMsg?' Respuesta de Drive: '+window.__subMsg:'')});
  $('#ncx').onclick=()=>d.close();
  if($('#nok'))$('#nok').onclick=()=>{d.querySelector('[data-n=estado]').value='Cerrada';const f=d.querySelector('[data-m=fcierre]');if(!f.value)f.value=today();d.querySelector('[data-m=solucion]').focus();msg('Escriba la solución, adjunte la evidencia y pulse Guardar')};
  if($('#ndl'))$('#ndl').onclick=()=>{const m=prompt('Motivo de eliminación:');if(m){call('del','Novedades',{id:r.id,_motivo:m});d.close();msg('Eliminada ✔');go(...cur)}};
@@ -2104,18 +2104,65 @@ window.provDL=()=>'<datalist id=dl_prov>'+provList().map(x=>'<option value="'+es
 window.provInp=(o,ds)=>'<div><label>Responsable / taller (proveedor)</label><input data-n="responsable" list=dl_prov autocomplete=off placeholder="Elija de la lista o escriba uno nuevo" value="'+esc(o.responsable)+'" '+ds+'><small>Si no está en la lista, escríbalo: queda guardado y aparece la próxima vez.</small>'+provDL()+'</div>'})();
 </script>
 <script>
-/* ===== Evidencias en la nube (Google Sheets, entidad «Evidencias»): se ven desde cualquier dispositivo ===== */
+/* ===== Evidencias en la nube (Google Sheets, entidad «Evidencias»): se ven desde cualquier dispositivo =====
+   v2 · Ahora se suben a la nube fotos, PDF y videos (hasta 1,5 MB), partidos en filas de ≤40.000 caracteres.
+   Formato en la hoja «Evidencias» (sin cambiar columnas, Code.gs queda igual):
+   · Foto pequeña (una sola fila): ref=ID · mime=image/jpeg · data=data:image/jpeg;base64,…  (formato anterior, compatible)
+   · Archivo en varias partes: ref=ID~1, ID~2… (data='x'+trozo) y al FINAL la fila ref=ID con mime='tipo;n=N' (marca que está completo). */
 (()=>{Object.assign(NEWS,{Evidencias:['ref','nombre','mime','data']});Object.assign(S0,{Evidencias:NEWS.Evidencias});
-const LIM=44000;
-const shr=f=>new Promise(ok=>{if(!/^image\//.test(f.type))return ok(null);const im=new Image(),u=URL.createObjectURL(f);im.onload=()=>{let s=1100,q=.65,o;do{const k=Math.min(1,s/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);o=c.toDataURL('image/jpeg',q);s*=.85;q=Math.max(.35,q-.06)}while(o.length>LIM&&s>240);URL.revokeObjectURL(u);ok(o.length>LIM?null:o)};im.onerror=()=>ok(null);im.src=u});
-window.evUp=async(id,f,nom)=>{if(OFF||window.__noEv||!/^image\//.test(f.type||''))return false;try{const d=await shr(f);if(!d)return false;await call0('save','Evidencias',{ref:id,nombre:nom,mime:'image/jpeg',data:d});return true}catch(e){window.__noEv=1;return false}};
+const CH=40000,            /* caracteres base64 por fila (límite de celda de Sheets: 50.000) */
+ IMG_MAX=6*CH,             /* fotos: se comprimen hasta ~180 KB (antes ~33 KB) */
+ RAW_MAX=1.5e6,            /* PDF y videos: máximo 1,5 MB para subirse a la nube */
+ PAR=3;                    /* filas enviadas en paralelo */
+const shr=f=>new Promise(ok=>{if(!/^image\//.test(f.type))return ok(null);const im=new Image(),u=URL.createObjectURL(f);im.onload=()=>{let s=1600,q=.72,o;do{const k=Math.min(1,s/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);o=c.toDataURL('image/jpeg',q);s*=.85;q=Math.max(.4,q-.05)}while(o.length>IMG_MAX&&s>300);URL.revokeObjectURL(u);ok(o.length>IMG_MAX?null:o)};im.onerror=()=>ok(null);im.src=u});
+const b64Of=b=>new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]||'');r.onerror=()=>ko(r.error);r.readAsDataURL(b)});
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+const NOENT=/entidad|entity|desconoc|no existe|unknown|esquema|schema/i;
+const saveRow=async row=>{let e;for(let t=0;t<3;t++){try{await call0('save','Evidencias',row);return}catch(x){e=x;if(NOENT.test(String(x&&x.message||x)))throw x;await pause(800*(t+1))}}throw e};
+const pool=async(tasks,lim)=>{let i=0,err=null;const w=async()=>{while(i<tasks.length&&!err){const t=tasks[i++];try{await t()}catch(e){err=e}}};await Promise.all(Array.from({length:Math.min(lim,tasks.length)},w));if(err)throw err};
+const kindOf=(f,nom)=>{const mt=f&&f.type||'',n=nom||'';return{img:/^image\//.test(mt),pdf:mt==='application/pdf'||/\.pdf$/i.test(n),vid:/^video\//.test(mt)||/\.(mp4|mov|m4v|webm|3gp|avi|mkv)$/i.test(n),mt}};
+/* Sube un archivo a la nube. true = quedó en la nube; false = no (muy grande, tipo no admitido o error de red) */
+window.evUp=async(id,f,nom,have)=>{window.__evErr=false;if(OFF||window.__noEv||!f)return false;
+ const k=kindOf(f,nom);if(!k.img&&!k.pdf&&!k.vid)return false;
+ try{let b64,mime;
+  if(k.img){const d=await shr(f);if(!d)return false;b64=d.split(',')[1];mime='image/jpeg'}
+  else{if(f.size>RAW_MAX)return false;b64=await b64Of(f);mime=k.pdf?'application/pdf':(k.mt||'video/mp4')}
+  const parts=[];for(let i=0;i<b64.length;i+=CH)parts.push(b64.slice(i,i+CH));const n=parts.length;
+  if(n===1&&k.img){await saveRow({ref:id,nombre:nom,mime,data:'data:image/jpeg;base64,'+parts[0]});return true}
+  let done=0;
+  await pool(parts.slice(1).map((p,j)=>async()=>{const r=id+'~'+(j+1);if(!(have&&have.has(r)))await saveRow({ref:r,nombre:nom,mime,data:'x'+p});msg('Subiendo «'+nom+'» a la nube… '+(++done)+' de '+n)}),PAR);
+  await saveRow({ref:id,nombre:nom,mime:mime+';n='+n,data:'x'+parts[0]});return true}
+ catch(e){window.__evErr=true;if(NOENT.test(String(e&&e.message||e)))window.__noEv=1;return false}};
 async function rows(force){const o=window.__force;if(force)window.__force=true;try{await load('Evidencias')}finally{window.__force=o}return D.Evidencias||[]}
 const rowsM=force=>{if(!force&&window.__evP)return window.__evP;const p=rows(force).finally(()=>setTimeout(()=>{if(window.__evP===p)window.__evP=null},3000));window.__evP=p;return p};
 const toBlob=u=>{const m=/^data:([^;]+);base64,(.*)$/.exec(u||'');if(!m)return null;const b=atob(m[2]),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return new Blob([a],{type:m[1]})};
-window.evFetch=async id=>{try{if(OFF)return null;let r=(await rowsM()).find(x=>x.ref===id);if(!r)r=(await rowsM(true)).find(x=>x.ref===id);if(!r||!r.data)return null;const b=toBlob(r.data);return b?{id,name:r.nombre,mime:r.mime,blob:b}:null}catch(e){return null}};
+const bin2blob=(s,type)=>{const b=atob(s),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return new Blob([a],{type})};
+/* Arma el archivo a partir de las filas (una sola fila o varias partes). null si falta alguna parte */
+const armar=(rs,id)=>{const by=new Map();rs.forEach(r=>{if(r&&r.ref&&r.data!=null&&r.data!=='')by.set(String(r.ref),r)});const h=by.get(id);if(!h)return null;
+ const m=/^(.*);n=(\d+)$/.exec(String(h.mime||''));
+ if(!m){const b=toBlob(h.data);return b?{id,name:h.nombre,mime:h.mime,blob:b}:null}
+ const n=+m[2],a=[String(h.data).replace(/^x/,'')];for(let k=1;k<n;k++){const p=by.get(id+'~'+k);if(!p)return null;a.push(String(p.data).replace(/^x/,''))}
+ try{return{id,name:h.nombre,mime:m[1],blob:bin2blob(a.join(''),m[1])}}catch(e){return null}};
+const MEM=new Map();
+/* Busca un archivo en la nube (lo usa el visor cuando no está en este navegador) */
+window.evFetch=async id=>{try{if(OFF)return null;if(MEM.has(id))return MEM.get(id);
+ let r=armar(await rowsM(),id);if(!r)r=armar(await rowsM(true),id);
+ if(r){MEM.set(id,r);if(MEM.size>12)MEM.delete(MEM.keys().next().value)}return r}catch(e){return null}};
 const idb=()=>new Promise((ok,ko)=>{const q=indexedDB.open('igc_evidencias',1);q.onupgradeneeded=()=>q.result.createObjectStore('f',{keyPath:'id'});q.onsuccess=()=>ok(q.result);q.onerror=()=>ko(q.error)});
-window.evSyncAll=async()=>{if(window.__evS||OFF||window.__noEv||!T)return;window.__evS=1;try{const db=await idb(),all=await new Promise((ok,ko)=>{const r=db.transaction('f').objectStore('f').getAll();r.onsuccess=()=>ok(r.result||[]);r.onerror=()=>ko(r.error)});const im=all.filter(x=>/^image\//.test(x.mime||''));if(!im.length)return;const have=new Set((await rowsM(true)).map(r=>r.ref));let n=0,f=0;for(const x of im){if(have.has(x.id))continue;if(window.__noEv)break;if(await window.evUp(x.id,x.blob,x.name))n++;else f++}
- if(n)msg(n+' evidencia(s) de este equipo quedaron guardadas en la nube: ya se ven desde cualquier dispositivo');else if(f&&window.__noEv)msg('Para ver las evidencias en otros equipos agregue la entidad «Evidencias» en Code.gs (Configuración → «Entidades nuevas»)',1)}catch(e){}};
+/* Sube a la nube lo que este equipo tiene guardado solo en su navegador (fotos, PDF y videos ≤ 1,5 MB) */
+window.evSyncAll=async force=>{if(window.__evS||OFF||window.__noEv||!T)return;if(!force&&Date.now()-(window.__evT||0)<60000)return;window.__evS=1;window.__evT=Date.now();
+ try{const db=await idb(),all=await new Promise((ok,ko)=>{const r=db.transaction('f').objectStore('f').getAll();r.onsuccess=()=>ok(r.result||[]);r.onerror=()=>ko(r.error)});
+  const ok1=x=>{const k=kindOf({type:x.mime},x.name);return x.blob&&(k.img||k.pdf||k.vid)};
+  const cand=all.filter(ok1),big=cand.filter(x=>!/^image\//.test(x.mime||'')&&(x.blob.size||0)>RAW_MAX).length,up=cand.filter(x=>/^image\//.test(x.mime||'')||(x.blob.size||0)<=RAW_MAX);
+  if(!up.length){if(big)msg(big+' archivo(s) de este equipo pesan más de 1,5 MB y no se pueden subir a la nube; reduzca el tamaño o cárguelos de nuevo',1);return}
+  const have=new Set((await rowsM(true)).map(r=>String(r.ref)));let n=0,f=0;
+  for(const x of up){if(have.has(x.id))continue;if(window.__noEv)break;
+   if(await window.evUp(x.id,x.blob,x.name,have))n++;else{f++;if(window.__evErr)break}}
+  if(n)msg(n+' evidencia(s) de este equipo quedaron guardadas en la nube: ya se ven desde cualquier dispositivo');
+  else if(f&&window.__noEv)msg('Para ver las evidencias en otros equipos agregue la entidad «Evidencias» en Code.gs (Configuración → «Entidades nuevas»)',1);
+  else if(f&&window.__evErr)msg('No se pudieron subir las evidencias de este equipo (falló la conexión). Se reintentará al volver a abrir «Novedades»',1);
+  else if(big)msg(big+' archivo(s) pesan más de 1,5 MB y siguen solo en este equipo',1)}
+ catch(e){}finally{window.__evS=0}};
 const _np=window.novPage;window.novPage=async function(){const r=await _np.apply(this,arguments);setTimeout(window.evSyncAll,1500);return r};
 })();
 </script>
