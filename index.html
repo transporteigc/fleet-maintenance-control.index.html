@@ -1769,4 +1769,67 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-ev]');if(!
 })();
 
 </script>
+<script>
+/* ===== Control de engrase general quincenal (cada 15 días): alerta automática, calendario y registro de la revisión ===== */
+(()=>{
+const ENGRE=/^(Engrase general|Revisar aceite del diferencial)/i,ACT='Engrase general',REF='Engrase quincenal',DEF=15,FE=/^\d{4}-\d{2}-\d{2}$/;
+const ITEMS=[['eg','Engrase general de todos los puntos',1],['niv','Revisión de niveles de aceite de la caja de cambios y de los diferenciales',0],['visc','Verificación del estado y la viscosidad de las valvulinas',0],['ins','Inspección de todos los puntos de lubricación (graseras, fugas, retenedores, cubos)',1]];
+const esT=c=>(D.Tractocamiones||[]).some(x=>x.codigo===c);
+const activos=()=>eqs().filter(e=>!/Dado de baja|Fuera de servicio/.test(e.estado||''));
+const row=(eq,re)=>(D.Plan||[]).find(p=>p.equipo===eq&&re.test(p.actividad||''));
+const dd=(a,b)=>Math.round((new Date(b+'T00:00:00Z')-new Date(a+'T00:00:00Z'))/864e5);
+const txt=c=>esT(c)?'Engrase general, niveles de aceite de caja y diferenciales, viscosidad de valvulinas e inspección de puntos de lubricación':'Engrase general e inspección de puntos de lubricación';
+function one(e){const t=today(),r=row(e.codigo,/^Engrase general/i),n=r&&+r.intervalo>0?+r.intervalo:DEF,u=r&&r.ultima_fecha?String(r.ultima_fecha).slice(0,10):'';
+ if(!FE.test(u))return{eq:e.codigo,r,n,u:'',st:'Sin registro',lv:3};
+ const nx=addDays(u,n),d=dd(t,nx),st=d<0?'Vencido':d===0?'Toca hoy':d<=2?'Próximo':'Al día';
+ return{eq:e.codigo,r,n,u,nx,d,st,lv:d<0?(-d>7?1:2):d===0?2:d<=2?3:4}}
+function alerts(){return activos().map(e=>{const o=one(e),A=(det,l,acc)=>({eq:e.codigo,o:'Preventivo',det:'Engrase general quincenal: '+det,l,acc});
+ if(o.st==='Sin registro')return A('sin registro del último engrase; regístrelo para activar el control cada '+o.n+' días',3,'Registrar el engrase');
+ if(o.st==='Vencido')return A('vencido hace '+(-o.d)+' día(s): se cumplieron los '+o.n+' días el '+fmtD(o.nx)+' (último: '+fmtD(o.u)+')',o.lv,'Engrasar y registrar el control');
+ if(o.st==='Toca hoy')return A('se cumplen hoy los '+o.n+' días desde el último engrase ('+fmtD(o.u)+')',2,'Engrasar hoy y registrar el control');
+ if(o.st==='Próximo')return A('se cumplen los '+o.n+' días en '+o.d+' día(s), el '+fmtD(o.nx),3,'Programar el engrase');
+ return null}).filter(Boolean)}
+function events(){const t=today(),E=[];activos().forEach(e=>{const o=one(e);if(!o.u)return;const x=txt(e.codigo),P=(f,det,lv)=>E.push({f,tp:'eng',eq:e.codigo,tit:'Engrase general quincenal',det:x+' · '+det,lv});
+ P(o.nx,o.st==='Vencido'?'vencido hace '+(-o.d)+' d':o.st==='Toca hoy'?'se cumplen hoy los '+o.n+' días':o.st==='Próximo'?'se cumplen los '+o.n+' días en '+o.d+' d':'cada '+o.n+' días',o.lv);
+ const base=o.nx>=t?o.nx:t,lim=addDays(t,365);for(let k=1;;k++){const f=addDays(base,o.n*k);if(f>lim)break;P(f,'proyectado (cada '+o.n+' días)',4)}});return E}
+const _aa=window.alertsAll;window.alertsAll=function(){const r=_aa.apply(this,arguments).filter(a=>!(a.o==='Preventivo'&&ENGRE.test(a.det||'')));try{alerts().forEach(a=>r.push(a))}catch(e){}return r.sort((a,b)=>a.l-b.l)};
+const _ce=window.calEv;window.calEv=function(){const r=_ce.apply(this,arguments);try{r.E=r.E.filter(e=>!(e.tp==='prev'&&ENGRE.test(e.tit||'')));r.SF=r.SF.filter(x=>!ENGRE.test(x.actividad||''));events().forEach(e=>r.E.push(e))}catch(e){}return r};
+CTIPO.eng=['⚙️','Engrase quincenal'];CALS.tp.eng=1;
+async function view(m){await Promise.all(['Tractocamiones','Traileres','Plan','Ordenes'].map(load));
+ const L=activos().map(one),can=canW(),cn=f=>L.filter(f).length,
+ sem=o=>dot(o.lv,'')+' <span class="b '+(o.st==='Vencido'?'r':o.st==='Toca hoy'?'o':o.st==='Próximo'||o.st==='Sin registro'?'y':'g')+'">'+o.st+'</span>',
+ H=(D.Ordenes||[]).filter(o=>o.novedad_id===REF).sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||''))).slice(0,80);
+ m.innerHTML=`<h3>Control de engrase general quincenal</h3>
+ <p><small>Cada <b>${DEF} días</b> se hace el engrase general de la flota: engrase de todos los puntos, revisión de niveles de aceite de la caja de cambios y de los diferenciales, verificación del estado y la viscosidad de las valvulinas e inspección de todos los puntos de lubricación. Al cumplirse los ${DEF} días el sistema genera la alerta automáticamente (también en <b>Alertas y criticidad</b> e <b>Inicio</b>) y las fechas aparecen en el <b>Calendario</b> (filtro «Engrase quincenal»).</small></p>
+ <div class=cards><div class="card r"><b>${cn(o=>o.st==='Vencido')}</b>Vencidos</div><div class="card y"><b>${cn(o=>o.st==='Toca hoy'||o.st==='Próximo')}</b>Toca hoy o próximos (2 días)</div><div class="card g"><b>${cn(o=>o.st==='Al día')}</b>Al día</div><div class=card><b>${cn(o=>o.st==='Sin registro')}</b>Sin registro</div></div>
+ <div class=bar>${can?'<button id=eg_n>+ Registrar engrase</button>':''}<button class=s id=eg_c>📅 Ver en el calendario</button></div>
+ ${TB(['Equipo','Tipo','Último engrase','Se cumplen los '+DEF+' días','Faltan','Estado',''],L.map(o=>[esc(o.eq),esT(o.eq)?'Tractocamión':'Tráiler',o.u?fmtD(o.u):'—',o.nx?fmtD(o.nx):'—',o.d==null?'—':o.d<0?'Vencido hace '+(-o.d)+' d':o.d===0?'Hoy':o.d+' d',sem(o),can?`<button class=s data-r="${esc(o.eq)}">Registrar engrase</button>`:'']))}
+ <h4>Historial de engrases registrados</h4>${H.length?TB(['Fecha','Equipo','Responsable','Revisión realizada','Observaciones / hallazgos'],H.map(o=>[fmtD(String(o.fecha||'').slice(0,10)),esc(o.equipo),esc(o.responsable)||'—',esc(o.actividades).replace(/\n/g,'<br>'),esc(o.resultado)||'—'])):'<p><small>Aún no hay engrases registrados desde este módulo. El último engrase de cada equipo sale del plan (hoja de vida 2025) y se actualiza con cada registro.</small></p>'}`;
+ m.onclick=e=>{const b=e.target.closest('[data-r]');if(b)return dlg(b.dataset.r,m)};
+ if($('#eg_n'))$('#eg_n').onclick=()=>dlg('',m);$('#eg_c').onclick=()=>{CALS.tp.eng=1;go('cal')}}
+function dlg(eq0,m){const Q=activos().map(e=>e.codigo);if(!Q.length)return msg('Primero registre los equipos',1);const d=$('#dlg'),eq=Q.includes(eq0)?eq0:Q[0],OP=['Realizado','Con hallazgo','No realizado'];d.className='';
+ d.innerHTML=`<h3>⚙️ Registrar engrase general quincenal</h3><div class=fg><div><label>Equipo</label>${optSel('eg_e',Q,eq)}</div><div><label>Fecha del engrase</label><input id=eg_f type=date value="${today()}" max="${today()}"></div><div><label>Odómetro (km) — opcional</label><input id=eg_k type=number></div><div><label>Responsable</label><input id=eg_r></div><div class=w id=eg_l></div><div class=w><label>Observaciones / hallazgos</label><textarea id=eg_o rows=2 placeholder="Ej.: nivel bajo en el diferencial trasero, valvulina oscura…"></textarea></div></div><div class=bar style="margin-top:10px"><button id=eg_ok>Guardar</button><button class=s id=eg_x>Cerrar</button></div><small>Al guardar, el próximo engrase queda a los ${DEF} días: se actualizan la alerta y el calendario. Si hay hallazgos que requieren reparación, regístrelos también como novedad.</small>`;
+ const paint=()=>{const q=$('#eg_e').value,T=esT(q),E=T&&estEq(q);$('#eg_k').value=E&&E.km!=null?Math.round(E.km):'';$('#eg_l').innerHTML=ITEMS.filter(i=>T||i[2]).map(i=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin:4px 0"><span>${i[1]}</span><select id="ck_${i[0]}" style="width:auto">${OP.map(x=>`<option>${x}</option>`).join('')}</select></div>`).join('')};
+ $('#eg_e').onchange=paint;paint();d.showModal();$('#eg_x').onclick=()=>d.close();
+ $('#eg_ok').onclick=async()=>{const g=i=>$('#'+i).value.trim(),e=g('eg_e'),f=g('eg_f'),T=esT(e);
+  if(!f)return msg('Indique la fecha',1);if(f>today())return msg('La fecha del engrase no puede ser futura',1);
+  const its=ITEMS.filter(i=>T||i[2]),st=Object.fromEntries(its.map(i=>[i[0],$('#ck_'+i[0]).value]));
+  if(st.eg==='No realizado')return msg('El engrase general debe estar realizado para registrar la quincena',1);
+  const acts=its.map(i=>'• '+i[1]+': '+st[i[0]]).join('\n'),hall=its.some(i=>st[i[0]]==='Con hallazgo');
+  try{const pr=row(e,/^Engrase general/i),pu=pr&&pr.ultima_fecha?String(pr.ultima_fecha).slice(0,10):'';
+   if(pr){if(!FE.test(pu)||f>=pu)await call('save','Plan',{id:pr.id,ultima_fecha:f})}
+   else await call('save','Plan',{equipo:e,sistema:'Sistema de lubricación',actividad:ACT,unidad:'dias',intervalo:String(DEF),ultima_fecha:f,fuente:'Control de engrase quincenal IGC (cada '+DEF+' días)',tipo_fuente:'Politica interna',estado:'Activo'});
+   const dr=T?row(e,/^Revisar aceite del diferencial/i):null;if(dr&&(!FE.test(String(dr.ultima_fecha||'').slice(0,10))||f>=String(dr.ultima_fecha).slice(0,10)))await call('save','Plan',{id:dr.id,ultima_fecha:f});
+   await call('save','Ordenes',{equipo:e,componente:'Sistema de lubricación',novedad_id:REF,fecha:f,km:g('eg_k'),diagnostico:'Engrase general quincenal (cada '+DEF+' días)',actividades:acts,responsable:g('eg_r'),resultado:g('eg_o'),estado:'Cerrada',fecha_cierre:f,prioridad:'P4'});
+   d.close();msg(hall?'Engrase registrado. Hay hallazgos: si requieren reparación, regístrelos como novedad':'Engrase registrado: próximo en '+DEF+' días');
+   await Promise.all(['Plan','Ordenes','Tractocamiones'].map(load));view(m)}catch(x){msg('Error: '+x,1)}}}
+M.splice(8,0,['Control de engrase quincenal','eng']);
+const _go=window.go;window.go=async function(v,e,f){if(v!=='eng')return _go.apply(this,arguments);
+ cur=[v,e,f];document.querySelectorAll('nav a').forEach((a,i)=>a.classList.toggle('on',M[i][1]===v&&M[i][2]===e&&M[i][3]===f));
+ const m=$('#main');try{await view(m)}catch(x){m.innerHTML='<p class=b>Error: '+esc(x)+'</p>'}};
+try{if($('#nav')&&$('#nav').children.length)menu()}catch(e){}
+window.engAlerts=alerts;window.engEvents=events;
+})();
+</script>
+
 </body></html>
