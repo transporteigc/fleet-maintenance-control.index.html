@@ -2282,6 +2282,7 @@ function chart(r){const w=720,h=210,pl=44,pb=26,pt=10,gw=(w-pl)/12,mx=Math.max(1
  return s+'</svg><div class=lgd><span style="color:#7d96b0">■</span> Presupuesto &nbsp; <span style="color:#2e9e5b">■</span> Ejecutado dentro del presupuesto &nbsp; <span style="color:#d32f2f">■</span> Ejecutado por encima</div>'}
 const bar=(e,b,s)=>`<div style="background:#e3e8ec;height:8px;border-radius:4px;min-width:70px"><div style="width:${b>0?Math.min(100,e/b*100):(e>0?100:0)}%;height:8px;border-radius:4px;background:${{ok:'#2e9e5b',warn:'#f0b400',over:'#d32f2f',nobud:'#ef6c00',none:'#cfd8dc'}[s]}"></div></div>`;
 window.budView=async function(m){
+ try{if(!OFF){const sc=await call('schema');if(sc&&typeof sc==='object'&&!Array.isArray(sc))window.srvMissB=!sc.Presupuestos}}catch(e){}
  await Promise.all(['Ordenes','Llantas','Compras','Presupuestos','Tractocamiones','Traileres'].map(e=>Promise.resolve().then(()=>load(e)).catch(()=>{D[e]=D[e]||[]})));
  const R=calc(),T=R.tot,L=alerts(R),can=canB(),yrs=[];for(let y=2025;y<=+today().slice(0,4)+1;y++)yrs.push(y);
  const mes=MESES[W.m-1],card=(t,v,c='')=>`<div class="card ${c}"><b>${v}</b>${t}</div>`;
