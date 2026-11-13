@@ -2323,4 +2323,34 @@ const _go=window.go;window.go=async function(v,e,f){if(v!=='bud')return _go.appl
 try{if($('#nav')&&$('#nav').children.length)menu()}catch(e){}
 })();
 </script>
+<script>
+/* ===== IGC · Orden de trabajo: el kilometraje se toma automáticamente del odómetro del preoperacional ===== */
+(()=>{
+const _od=window.otDecor;
+window.otDecor=function(d,o){const r=_od.apply(this,arguments);try{kmAuto(d,o||{})}catch(e){console.error(e)}return r};
+function kmAuto(d,o){
+ const g=n=>d.querySelector('[data-n="'+n+'"]'),ke=g('km'),ee=g('equipo'),fe=g('fecha');if(!ke||!ee)return;
+ const box=ke.closest('div'),hint=document.createElement('small');hint.style.display='block';box.appendChild(hint);
+ let manual=!!(o.id&&String(o.km||'').trim()!=='');   // una OT ya guardada con km no se sobrescribe sola
+ const pick=(eq,f)=>{if(!eq)return null;const c=[eq];if((D.Traileres||[]).some(x=>x.codigo===eq)){const t=tractoDe(eq);if(t)c.unshift(t)}   // volco: usa el odómetro de su tractocamión
+  for(const q of c){
+   let L=(D.Preop||[]).filter(p=>p.equipo===q&&p.fecha&&num(p.km_odometro)!=null).map(p=>({f:String(p.fecha).slice(0,10),k:num(p.km_odometro),s:'Preoperacional'}));
+   if(!L.length)L=(D.Inspecciones||[]).filter(p=>p.equipo===q&&p.fecha&&num(p.km)!=null).map(p=>({f:String(p.fecha).slice(0,10),k:num(p.km),s:'Inspección'}));
+   if(!L.length)continue;
+   L.sort((a,b)=>a.f.localeCompare(b.f)||a.k-b.k);
+   const lim=f&&/^\d{4}-\d{2}-\d{2}$/.test(f)?L.filter(x=>x.f<=f):L;
+   return Object.assign({q},(lim.length?lim:L).slice(-1)[0])}
+  return null};
+ const apply=()=>{const eq=String(ee.value||'').trim(),r=pick(eq,fe&&fe.value);
+  if(!r){hint.textContent=eq?'Sin lectura de odómetro del preoperacional para este equipo: escriba el kilometraje.':'';return}
+  if(!manual)ke.value=r.k;
+  const t='<b>'+r.k.toLocaleString('es-CO')+' km</b> · '+r.s+' del '+fmtD(r.f)+(r.q!==eq?' (tractocamión '+esc(r.q)+')':'');
+  hint.innerHTML=manual&&String(ke.value)!==String(r.k)?'Odómetro más reciente: '+t+' · <a class=lk id=km_use>usar este valor</a>':'✔ Tomado automáticamente: '+t+'. Puede editarlo.';
+  const u=hint.querySelector('#km_use');if(u)u.onclick=()=>{manual=false;ke.value=r.k;apply()}};
+ ke.addEventListener('input',e=>{if(e.isTrusted){manual=true;apply()}});
+ ['input','change'].forEach(ev=>{ee.addEventListener(ev,apply);if(fe)fe.addEventListener(ev,apply)});
+ apply();
+ Promise.all(['Preop','Inspecciones'].map(e=>Promise.resolve().then(()=>load(e)).catch(()=>{}))).then(apply)}
+})();
+</script>
 </body></html>
