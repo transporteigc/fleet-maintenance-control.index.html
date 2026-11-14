@@ -2353,4 +2353,116 @@ function kmAuto(d,o){
  Promise.all(['Preop','Inspecciones'].map(e=>Promise.resolve().then(()=>load(e)).catch(()=>{}))).then(apply)}
 })();
 </script>
+<script>
+/* ===== PARCHE: facturas múltiples + proveedor, conductores, Novedades por fecha + panel de prioridad ===== */
+(()=>{
+const fx=s=>String(s==null?'':s);
+const facParse=s=>fx(s).split(/\s*;\s*/).map(x=>x.trim()).filter(Boolean).map(x=>{const m=/^(.*?)\s*\(([^()]*)\)\s*$/.exec(x);return m?{n:m[1].trim(),p:m[2].trim()}:{n:x,p:''}});
+const clean=s=>fx(s).replace(/[;()]/g,' ').replace(/\s+/g,' ').trim();
+const facStr=a=>a.filter(r=>clean(r.n)||clean(r.p)).map(r=>(clean(r.n)||'S/N')+(clean(r.p)?' ('+clean(r.p)+')':'')).join(' ; ');
+window.facParse=facParse;
+
+/* ---- proveedores: también salen de las facturas ---- */
+const _pl=window.provList;
+window.provList=()=>{const m=new Map();(_pl?_pl():[]).forEach(v=>m.set(v.toLowerCase(),v));
+ (D.Ordenes||[]).forEach(o=>['factura_repuestos','factura_mantenimiento'].forEach(k=>facParse(o[k]).forEach(r=>{const v=r.p.trim();if(v&&!m.has(v.toLowerCase()))m.set(v.toLowerCase(),v)})));
+ return[...m.values()].sort((a,b)=>a.localeCompare(b,'es'))};
+
+/* ---- widget de varias facturas (número + proveedor, con ✕ y «agregar otra») ---- */
+window.facWidget=(host,input,label)=>{
+ let dl=document.getElementById('dl_prov2');if(!dl){dl=document.createElement('datalist');dl.id='dl_prov2';document.body.appendChild(dl)}
+ dl.innerHTML=window.provList().map(v=>'<option value="'+esc(v)+'">').join('');
+ let rows=facParse(input.value);if(!rows.length)rows=[{n:'',p:''}];
+ const draw=()=>{host.innerHTML='<label>'+label+'</label>'+rows.map((r,i)=>`<div style="display:flex;gap:6px;margin:3px 0;align-items:center"><input data-fn="${i}" placeholder="N.º de factura" value="${esc(r.n==='S/N'?'':r.n)}" style="flex:1"><input data-fp="${i}" list=dl_prov2 autocomplete=off placeholder="Proveedor (elija o escriba)" value="${esc(r.p)}" style="flex:1.3"><button type=button class=d data-fx="${i}" title="Quitar esta factura">✕</button></div>`).join('')+'<button type=button class=s data-fa=1>＋ Agregar otra factura</button>'};
+ const sync=()=>{input.value=facStr(rows);if(input.dispatchEvent)input.dispatchEvent(new Event('input',{bubbles:true}))};
+ host.oninput=e=>{const t=e.target;if(t.dataset.fn!=null)rows[+t.dataset.fn].n=t.value;else if(t.dataset.fp!=null)rows[+t.dataset.fp].p=t.value;sync()};
+ host.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.fa){rows.push({n:'',p:''});draw()}else if(b.dataset.fx!=null){rows.splice(+b.dataset.fx,1);if(!rows.length)rows=[{n:'',p:''}];draw();sync()}};
+ draw();return{get:()=>facStr(rows)}};
+
+/* ---- validación: cada factura de una OT cerrada debe tener proveedor ---- */
+const _ov=window.otVal;
+window.otVal=x=>{const e=_ov?_ov(x):'';if(e)return e;
+ if(x.estado==='Cerrada'&&!/^Import/i.test(x.novedad_id||''))for(const k of ['factura_repuestos','factura_mantenimiento'])for(const r of facParse(x[k]))if(r.n&&r.n!=='S/N'&&!r.p)return 'Indique el proveedor de la factura '+r.n;
+ return ''};
+
+/* ---- formulario de la OT: quitar «taller/externo» y «N.º factura (anterior)»; facturas múltiples ---- */
+const _od=window.otDecor;
+window.otDecor=function(d,o){const r=_od.apply(this,arguments);
+ try{['costo_externo','numero_factura'].forEach(n=>{const i=d.querySelector('[data-n="'+n+'"]'),w=i&&i.closest('div');if(w)w.remove()});
+  [['factura_repuestos','🧾 Facturas de repuestos (número y proveedor)'],['factura_mantenimiento','🧾 Facturas de mantenimiento / mano de obra (número y proveedor)']].forEach(([n,lb])=>{
+   const i=d.querySelector('[data-n="'+n+'"]'),w=i&&i.closest('div');if(!i||!w)return;w.classList.add('w');
+   const l=w.querySelector('label');if(l)l.style.display='none';i.style.display='none';
+   const h=document.createElement('div');w.appendChild(h);window.facWidget(h,i,lb)})}catch(e){console.error(e)}
+ return r};
+
+/* ---- cierre rápido de la OT con facturas múltiples (sin costo externo) ---- */
+window.closeOT=async function(id){const o=(D.Ordenes||[]).find(x=>x.id===id);if(!o)return;try{window.ensOrd&&window.ensOrd()}catch(e){}
+ const d=$('#dlg');d.className='';const fo=String(o.fecha||'').slice(0,10),fi0=String(o.fecha_inicio||'').slice(0,10)||fo,f0=String(o.fecha_cierre||'').slice(0,10)||today(),now=new Date().toTimeString().slice(0,5),v=x=>esc(x==null?'':x),g=i=>$('#'+i).value.trim(),
+ H=t=>`<div class=w><h4 style="margin:8px 0 0;color:var(--p);border-top:2px solid var(--a);padding-top:6px">${t}</h4></div>`;
+ d.innerHTML=`<h3>✔ Cerrar orden de trabajo · ${esc(o.equipo)}</h3><p><small>${esc(o.componente||'')}${o.diagnostico?' · '+esc(String(o.diagnostico).slice(0,100)):''} · programada para el ${fmtD(fo)}${o.novedad_id?' · novedad '+esc(o.novedad_id):''}</small></p>
+ <div class=fg>${H('Ejecución del mantenimiento (mide la disponibilidad del vehículo)')}
+ <div><label>Inicio de la ejecución · fecha</label><input id=co_fi type=date value="${fi0}"></div><div><label>Inicio de la ejecución · hora</label><input id=co_i type=time value="${v(o.hora_inicio)}"></div>
+ <div><label>Fin / cierre · fecha</label><input id=co_f type=date value="${f0}" max="${today()}"></div><div><label>Fin / cierre · hora</label><input id=co_h type=time value="${v(o.hora_cierre)||now}"></div>
+ ${H('Costos y facturas (puede agregar varias, cada una con su proveedor)')}
+ <div><label>Costo de repuestos ($)</label><input id=co_r type=number min=0 step=any value="${v(o.costo_repuestos)}"></div><div><label>Costo de mantenimiento · mano de obra ($)</label><input id=co_m type=number min=0 step=any value="${v(o.costo_mano_obra)}"></div>
+ <div class=w id=co_hr></div><div class=w id=co_hm></div>
+ <div class=w><label>Resultado / observaciones</label><textarea id=co_o rows=2>${v(o.resultado)}</textarea></div></div>
+ <div class=bar style="margin-top:10px"><button id=co_ok>Cerrar orden</button><button class=s id=co_x>Cancelar</button></div>`;
+ const WR=window.facWidget($('#co_hr'),{value:o.factura_repuestos||''},'🧾 Facturas de repuestos (número y proveedor)'),WM=window.facWidget($('#co_hm'),{value:o.factura_mantenimiento||''},'🧾 Facturas de mantenimiento / mano de obra (número y proveedor)');
+ const SB=window.subsOT?window.subsOT(d,o,true):null;d.showModal();$('#co_x').onclick=()=>d.close();
+ $('#co_ok').onclick=async()=>{const fi=g('co_fi'),hi=g('co_i'),f=g('co_f'),h=g('co_h'),r=g('co_r'),mo=g('co_m'),fr=WR.get(),fm=WM.get();
+  if(!fi)return msg('Indique la fecha de inicio de la ejecución',1);if(!f)return msg('Indique la fecha de cierre',1);if(f>today())return msg('La fecha de cierre no puede ser futura',1);if(!h)return msg('Indique la hora de fin / cierre',1);
+  if([r,mo].some(x=>x!==''&&!(+x>=0)))return msg('Los costos deben ser números mayores o iguales a 0',1);
+  const er=otVal({estado:'Cerrada',fecha:fo,fecha_inicio:fi,hora_inicio:hi,fecha_cierre:f,hora_cierre:h,costo_repuestos:r,costo_mano_obra:mo,factura_repuestos:fr,factura_mantenimiento:fm,novedad_id:o.novedad_id});if(er)return msg(er,1);
+  if(r===''&&mo===''&&!confirm('No registró costos de repuestos ni de mano de obra. ¿Cerrar la orden sin costos?'))return;
+  if(SB&&!SB.E.length&&!confirm('No cargó evidencia de que la novedad fue subsanada. ¿Cerrar la orden sin evidencias?'))return;if(SB)await SB.wait();
+  try{await call('save','Ordenes',{id:o.id,estado:'Cerrada',fecha_inicio:fi,hora_inicio:hi,fecha_cierre:f,hora_cierre:h,costo_repuestos:r,costo_mano_obra:mo,factura_repuestos:fr,factura_mantenimiento:fm,resultado:g('co_o')});
+   if(o.novedad_id){if(SB)await SB.apply(f,g('co_o'));else{await load('Novedades');const nv=(D.Novedades||[]).find(n=>n.id===o.novedad_id);if(nv&&nv.estado!=='Cerrada')await call('save','Novedades',{id:nv.id,estado:'Cerrada'})}}
+   d.close();msg('Orden cerrada: costos y facturas registrados');go(...cur)}catch(e){msg(e,1)}}};
+
+/* ---- conductores: por defecto dos + los que se vayan escribiendo ---- */
+const DEFC=['Juan Carlos Freile Bernal','Jesús Alberto Sandoval Suárez'],nk=s=>nrm(s).replace(/\s+/g,' ');
+window.condList=()=>{const m=new Map();DEFC.forEach(v=>m.set(nk(v),v));const ex=[];
+ [['Novedades','conductor'],['Preop','conductor']].forEach(([e,k])=>(D[e]||[]).forEach(r=>{const v=fx(r[k]).replace(/\s+/g,' ').trim();if(v.length>3&&!m.has(nk(v))){m.set(nk(v),v);ex.push(v)}}));
+ return[...DEFC,...ex.sort((a,b)=>a.localeCompare(b,'es'))]};
+function condUI(can){const d=$('#dlg'),i=d.querySelector('[data-n="conductor"]');if(!i)return;
+ const lb=i.closest('div').querySelector('label');if(lb)lb.textContent='Conductor que reportó';
+ i.setAttribute('list','dl_cond');i.setAttribute('autocomplete','off');i.placeholder='Elija un conductor o escriba un nombre nuevo';
+ let dl=document.getElementById('dl_cond');if(!dl){dl=document.createElement('datalist');dl.id='dl_cond';document.body.appendChild(dl)}
+ const L=window.condList();dl.innerHTML=L.map(v=>'<option value="'+esc(v)+'">').join('');
+ if(!can)return;const w=document.createElement('div');w.style.margin='4px 0';
+ w.innerHTML=L.slice(0,10).map(v=>`<button type=button class=s data-cn="${esc(v)}" style="margin:2px 4px 2px 0;padding:3px 8px;font-size:12px">👤 ${esc(v)}</button>`).join('')+'<br><small>Si el conductor no está, escriba su nombre: se guarda solo y aparece en la lista la próxima vez.</small>';
+ i.parentNode.appendChild(w);w.onclick=e=>{const b=e.target.closest('[data-cn]');if(b){i.value=b.dataset.cn;i.dispatchEvent(new Event('input',{bubbles:true}))}}}
+const _ed=window.edit;
+window.edit=function(ent,r,can,pre){const o=_ed.apply(this,arguments);if(ent==='Novedades'){try{condUI(can)}catch(e){console.error(e)}}return o};
+
+/* ---- Novedades: más reciente primero + panel didáctico de prioridades ---- */
+const PR=[[1,'🔴','#c62828','#fdecea','Frenos, dirección, llantas reventadas, equipo que no puede operar'],[2,'🟠','#ef6c00','#fff3e0','Fugas, llantas con poca banda, falla en un sistema de seguridad'],[3,'🟡','#f9a825','#fffde7','Ruidos, fallas de operación sin riesgo inmediato'],[4,'🟢','#2e7d32','#e8f5e9','Cabina, tapizado, estética y confort']];
+const rec=(a,b)=>fx(b.fecha).localeCompare(fx(a.fecha))||fx(b.hora).localeCompare(fx(a.hora))||fx(b.id).localeCompare(fx(a.id));
+window.novPage=async function(m){
+ await Promise.all(['Tractocamiones','Traileres','Novedades','Ordenes','Servicios','Uso','Preop'].map(load));
+ const F=window.nf=window.nf||{q:'',pl:'',c:'',d:'',h:'',t:'',p:'',e:'',o:''},N=D.Novedades||[],un=k=>[...new Set(N.map(n=>n[k]).filter(Boolean))].sort(),sel=(id,k,v)=>`<select id=${id}><option value="">${k}</option>${un(id.slice(1)).map(x=>`<option ${x===v?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
+ const crit=N.filter(n=>n.estado!=='Cerrada'&&lvlR(n,'N').l===1).length,nuevas=N.filter(n=>n.estado==='Nueva'&&n.origen==='Google Forms').length;
+ m.innerHTML=`<h3>Novedades</h3>${crit?`<div class=wn style="background:#fdd;border-color:#c62828">⛔ <b>${crit}</b> novedad(es) crítica(s) (P1) sin cerrar: revisión prioritaria. Recibir un reporte no autoriza la operación del equipo.</div>`:''}${nuevas?`<div class=wn>📥 ${nuevas} reporte(s) de Google Forms están «Nueva»: falta revisarlos.</div>`:''}
+ <div id=npr></div>
+ <div class=bar><input id=nq placeholder="Buscar en todo…" value="${esc(F.q)}"><input id=npl placeholder="Placa" value="${esc(F.pl)}" style="max-width:120px"><input id=nc placeholder="Conductor" value="${esc(F.c)}" style="max-width:150px">Desde <input type=date id=nd value="${F.d}" style="max-width:150px"> hasta <input type=date id=nh value="${F.h}" style="max-width:150px"></div>
+ <div class=bar>${sel('ntipo','Tipo','')}<select id=np><option value="">Prioridad</option>${['P1','P2','P3','P4'].map(p=>`<option ${p===F.p?'selected':''}>${p}</option>`).join('')}</select><select id=ne><option value="">Estado</option>${['Nueva','En evaluacion','Programada','Con OT','Cerrada'].map(p=>`<option ${p===F.e?'selected':''}>${p}</option>`).join('')}</select><select id=no><option value="">Origen</option>${un('origen').map(p=>`<option ${p===F.o?'selected':''}>${esc(p)}</option>`).join('')}</select>${canW()?'<button id=nn>+ Nueva novedad de mantenimiento</button>':''}<button class=s id=nx>Exportar CSV</button><button class=s id=nia type=button>🤖 IA</button></div><div id=nt></div>`;
+ const pan=()=>{const ab=N.filter(n=>n.estado!=='Cerrada'),by=p=>ab.filter(n=>lvlR(n,'N').p===p),tot=ab.length||1;
+  return `<div style="background:#fff;border-radius:12px;padding:12px;margin:8px 0;box-shadow:var(--sh)"><div class=bar style="margin:0 0 8px;align-items:center"><b style="font-size:15px">🚦 Clasificación por prioridad</b><small>Novedades abiertas: <b>${ab.length}</b> · clic en una tarjeta para filtrar</small>${F.p?'<button type=button class=s data-pc="">Quitar filtro</button>':''}</div>
+  <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin-bottom:10px;background:#e3e8ec">${PR.map(([p,,c])=>{const k=by(p).length;return k?`<div style="width:${k/tot*100}%;background:${c}" title="P${p}: ${k}"></div>`:''}).join('')}</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">${PR.map(([p,ic,c,bg,ej])=>{const L=by(p),vc=L.filter(n=>lvlR(n,'N').sla).length;return `<div data-pc="P${p}" style="cursor:pointer;background:${bg};border-left:6px solid ${c};border-radius:10px;padding:10px;${F.p==='P'+p?'outline:3px solid #002e42;':''}"><div style="display:flex;justify-content:space-between;align-items:center"><b style="color:${c}">${ic} P${p} · ${LV[p][0]}</b><b style="font-size:26px;color:${c}">${L.length}</b></div><small><b>Plazo:</b> ${esc(LV[p][1])}</small><br><small><b>Ejemplos:</b> ${ej}</small>${vc?`<br><span class="b r">⏰ ${vc} con plazo vencido</span>`:''}${L.slice().sort(rec).slice(0,3).map(n=>`<div style="font-size:12px;margin-top:3px;border-top:1px dashed #0002;padding-top:2px"><b>${esc(n.tracto||n.trailer||'—')}</b> · ${esc(n.componente||n.tipo||'')} <small>${fmtD(String(n.fecha||'').slice(0,10))}</small></div>`).join('')}</div>`}).join('')}</div></div>`};
+ const rows=()=>N.filter(n=>{const eq=(n.tracto||n.trailer||'').toLowerCase();return(!F.q||JSON.stringify(n).toLowerCase().includes(F.q.toLowerCase()))&&(!F.pl||eq.includes(F.pl.toLowerCase()))&&(!F.c||(n.conductor||'').toLowerCase().includes(F.c.toLowerCase()))&&(!F.d||(n.fecha||'')>=F.d)&&(!F.h||(n.fecha||'')<=F.h)&&(!F.t||n.tipo===F.t)&&(!F.p||'P'+lvlR(n,'N').p===F.p)&&(!F.e||n.estado===F.e)&&(!F.o||n.origen===F.o)}).sort(rec);
+ const draw=()=>{$('#npr').innerHTML=pan();const R=rows();$('#nt').innerHTML=`<p class=lgd>${R.length} de ${N.length} novedades · ordenadas de la más reciente a la más antigua</p>`+TB(['','Fecha','Conductor','Equipo','Tipo · componente','Descripción','Prioridad','Estado','Responsable (OT)','Evidencias','Actualizado','Origen','🤖 Diagnóstico',''],R.map(n=>{const ot=(D.Ordenes||[]).find(o=>o.novedad_id===n.id&&!['Cancelada','Rechazada'].includes(o.estado));return[n.estado==='Cerrada'?'':dot(lvlR(n,'N').l),fmtD(n.fecha)+(n.hora?' '+esc(n.hora):''),esc(n.conductor),eqCell(n),esc([n.tipo,n.componente].filter(Boolean).join(' · ')),`<span title="${esc(n.descripcion)}">${esc((n.descripcion||'').slice(0,70))}${(n.descripcion||'').length>70?'…':''}</span>`,bd('prioridad',n.prioridad||'P'+lvlR(n,'N').p),bd('estado',n.estado)+solN(n)+progTag(n),esc(ot&&ot.responsable||'')||'<small>sin asignar (se define en la OT)</small>',evid2(n),fmtD(String(n.modificado||'').slice(0,10)),n.origen==='Google Forms'?'<span class="b p">Forms</span>':esc(n.origen),iaCell(n),`<button class=s data-o="${n.id}">${canW()?'Gestionar':'Ver'}</button>${canW()&&n.estado!=='Cerrada'?` <button data-t="${n.id}">${ot?'Ver OT':'Crear OT'}</button>`:''}`]}))};
+ draw();iaAuto(N);
+ $('#npr').onclick=e=>{const c=e.target.closest('[data-pc]');if(!c)return;const v=c.dataset.pc;F.p=F.p===v?'':v;$('#np').value=F.p;draw()};
+ const bind=(id,k)=>$('#'+id).oninput=e=>{F[k]=e.target.value;draw()};bind('nq','q');bind('npl','pl');bind('nc','c');bind('nd','d');bind('nh','h');bind('ntipo','t');bind('np','p');bind('ne','e');bind('no','o');
+ $('#nt').onclick=e=>{const d=e.target.dataset;if(d.o)edit('Novedades',N.find(x=>x.id===d.o),canW());else if(d.t)crearOT(N.find(x=>x.id===d.t))};
+ if($('#nn'))$('#nn').onclick=()=>edit('Novedades',null,true,{fecha:today(),origen:'Manual'});
+ $('#nx').onclick=()=>csv('novedades',COLS('Novedades').map(c=>c.n),rows());
+ clearInterval(window.nTim);window.nTim=setInterval(async()=>{if(OFF||document.hidden||cur[0]!=='ent'||cur[1]!=='Novedades'||document.querySelector('dialog[open]')){if(cur[0]!=='ent'||cur[1]!=='Novedades')clearInterval(window.nTim);return}
+  try{const a=await call('list','Novedades');if(JSON.stringify(a)!==JSON.stringify(D.Novedades)){D.Novedades=a;novPage($('#main'));msg('Novedades actualizadas automáticamente')}}catch(x){}},60000);
+ setTimeout(window.evSyncAll,1500)};
+})();
+
+</script>
 </body></html>
