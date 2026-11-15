@@ -2409,6 +2409,7 @@ window.closeOT=async function(id){const o=(D.Ordenes||[]).find(x=>x.id===id);if(
  <div class=w><label>Resultado / observaciones</label><textarea id=co_o rows=2>${v(o.resultado)}</textarea></div></div>
  <div class=bar style="margin-top:10px"><button id=co_ok>Cerrar orden</button><button class=s id=co_x>Cancelar</button></div>`;
  const WR=window.facWidget($('#co_hr'),{value:o.factura_repuestos||''},'🧾 Facturas de repuestos (número y proveedor)'),WM=window.facWidget($('#co_hm'),{value:o.factura_mantenimiento||''},'🧾 Facturas de mantenimiento / mano de obra (número y proveedor)');
+ try{window.facPdf&&window.facPdf.attach(d,o,'close')}catch(e){console.error(e)}
  const SB=window.subsOT?window.subsOT(d,o,true):null;d.showModal();$('#co_x').onclick=()=>d.close();
  $('#co_ok').onclick=async()=>{const fi=g('co_fi'),hi=g('co_i'),f=g('co_f'),h=g('co_h'),r=g('co_r'),mo=g('co_m'),fr=WR.get(),fm=WM.get();
   if(!fi)return msg('Indique la fecha de inicio de la ejecución',1);if(!f)return msg('Indique la fecha de cierre',1);if(f>today())return msg('La fecha de cierre no puede ser futura',1);if(!h)return msg('Indique la hora de fin / cierre',1);
@@ -2416,7 +2417,7 @@ window.closeOT=async function(id){const o=(D.Ordenes||[]).find(x=>x.id===id);if(
   const er=otVal({estado:'Cerrada',fecha:fo,fecha_inicio:fi,hora_inicio:hi,fecha_cierre:f,hora_cierre:h,costo_repuestos:r,costo_mano_obra:mo,factura_repuestos:fr,factura_mantenimiento:fm,novedad_id:o.novedad_id});if(er)return msg(er,1);
   if(r===''&&mo===''&&!confirm('No registró costos de repuestos ni de mano de obra. ¿Cerrar la orden sin costos?'))return;
   if(SB&&!SB.E.length&&!confirm('No cargó evidencia de que la novedad fue subsanada. ¿Cerrar la orden sin evidencias?'))return;if(SB)await SB.wait();
-  try{await call('save','Ordenes',{id:o.id,estado:'Cerrada',fecha_inicio:fi,hora_inicio:hi,fecha_cierre:f,hora_cierre:h,costo_repuestos:r,costo_mano_obra:mo,factura_repuestos:fr,factura_mantenimiento:fm,resultado:g('co_o')});
+  try{await call('save','Ordenes',{id:o.id,estado:'Cerrada',fecha_inicio:fi,hora_inicio:hi,fecha_cierre:f,hora_cierre:h,costo_repuestos:r,costo_mano_obra:mo,factura_repuestos:fr,factura_mantenimiento:fm,resultado:g('co_o'),...(window.facPdf?window.facPdf.extra(d):{})});
    if(o.novedad_id){if(SB)await SB.apply(f,g('co_o'));else{await load('Novedades');const nv=(D.Novedades||[]).find(n=>n.id===o.novedad_id);if(nv&&nv.estado!=='Cerrada')await call('save','Novedades',{id:nv.id,estado:'Cerrada'})}}
    d.close();msg('Orden cerrada: costos y facturas registrados');go(...cur)}catch(e){msg(e,1)}}};
 
@@ -2611,4 +2612,148 @@ document.addEventListener('DOMContentLoaded',()=>{ui();place()});if(document.rea
 })();
 </script>
 
+<script>
+/* ===== Factura en PDF → relación automática (referencia, repuesto, cantidad, valor, total, N.º y proveedor) ===== */
+(()=>{
+const PDFJS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',WRK='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const MYNIT='900411933';
+const fmt=n=>'$'+Math.round(+n||0).toLocaleString('es-CO');
+const r2=n=>Math.round((+n||0)*100)/100;
+const fire=el=>{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))};
+/* ---------- número (formato colombiano o estadounidense) ---------- */
+function pn(tok){let s=String(tok).replace(/[$\s]/g,'');if(!/^-?\d[\d.,]*$/.test(s))return null;const neg=s[0]==='-';s=s.replace('-','').replace(/[.,]+$/,'');if(!s)return null;
+ const d=s.lastIndexOf('.'),c=s.lastIndexOf(',');let v;
+ if(d>=0&&c>=0){const k=Math.max(d,c);v=s.slice(0,k).replace(/[.,]/g,'')+'.'+s.slice(k+1)}
+ else if(d>=0||c>=0){const sep=d>=0?'.':',',p=s.split(sep);
+  v=p.length>2?p.join(''):(p[1].length===3&&p[0].length<=3&&p[0]!=='0'&&p[0]!=='00')?p.join(''):p[0]+'.'+p[1]}
+ else v=s;
+ const x=parseFloat(v);return isNaN(x)?null:(neg?-x:x)}
+/* ---------- PDF → filas de celdas ---------- */
+async function loadPdfjs(){if(window.pdfjsLib)return;
+ await new Promise((ok,ko)=>{const s=document.createElement('script');s.src=PDFJS;s.onload=ok;s.onerror=()=>ko(new Error('No se pudo cargar el lector de PDF. Revise la conexión a internet.'));document.head.appendChild(s)});
+ let w=WRK;try{const t=await(await fetch(WRK)).text();w=URL.createObjectURL(new Blob([t],{type:'text/javascript'}))}catch(e){}
+ pdfjsLib.GlobalWorkerOptions.workerSrc=w}
+async function pdfRows(pdf){const rows=[],n=Math.min(pdf.numPages,12);
+ for(let p=1;p<=n;p++){const tc=await(await pdf.getPage(p)).getTextContent();
+  const its=tc.items.filter(i=>i.str&&i.str.trim()).map(i=>({s:i.str,x:i.transform[4],y:i.transform[5],w:i.width||0,h:i.height||Math.abs(i.transform[3])||8}));
+  its.sort((a,b)=>b.y-a.y||a.x-b.x);let cur=null;const pr=[];
+  its.forEach(it=>{if(cur&&Math.abs(it.y-cur.y)<=Math.max(2.2,it.h*.45))cur.it.push(it);else{cur={y:it.y,it:[it]};pr.push(cur)}});
+  pr.forEach(r=>{r.it.sort((a,b)=>a.x-b.x);const cells=[];let last=null;
+   r.it.forEach(i=>{if(last&&i.x-(last.x+last.w)<=5){last.s+=(i.x-(last.x+last.w)>1?' ':'')+i.s;last.w=i.x+i.w-last.x}else{last={x:i.x,w:i.w,s:i.s};cells.push(last)}});
+   const text=cells.map(c=>c.s.trim()).join('  ').replace(/\s+/g,' ').trim();if(text)rows.push({p,cells,text})})}
+ return rows}
+/* ---------- interpretar la factura ---------- */
+const STOP=/^(sub\s*-?\s*total|total\b|son\b|valor en letras|observaci|forma de pago|medio de pago|notas?\b|cufe|descuento\s+total|retenci|iva\b|base\b|resumen)/i;
+const UNI=/^(und|un|unid|unidad|unidades|kg|lt|lts|gl|gln|m|mt|mts|cj|pza|pieza|par|jgo|juego|serv|h|hr|ea|nar|94)$/i;
+function findLine(nums){for(let c=nums.length-1;c>=2;c--)for(let b=c-1;b>=1;b--)for(let a=b-1;a>=0;a--){const q=nums[a].v,u=nums[b].v,t=nums[c].v;
+  if(q>0&&q<=100000&&u>0&&t>0&&Math.abs(q*u-t)<=Math.max(1,.005*t))return[a,b,c]}return null}
+function parseInvoice(rows){const out={n:'',p:'',nit:'',tot:null,L:[],sum:0,warn:[]},full=rows.map(r=>r.text).join('\n');
+ /* número */
+ let m=/factura\s+(?:electr[oó]nica\s+)?(?:de\s+venta\s+)?(?:No\.?|N[°º]|N[úu]mero|#)\s*[:\-]?\s*([A-Z]{1,6}[\s\-]?\d{1,12})/i.exec(full)
+  ||/(?:n[úu]mero\s+de\s+factura|factura\s+no\.?|no\.?\s+factura|n[°º]\s*factura|factura\s+de\s+venta)\s*[:\-#]?\s*([A-Z]{0,6}[\s\-]?\d{1,12})/i.exec(full)
+  ||/\b(FEV?|FV|FC|FA|FES|SETT|SE|EA|PD)[\s\-]?(\d{3,10})\b/.exec(full)&&[0,RegExp.$1+'-'+RegExp.$2];
+ if(m)out.n=String(m[1]).toUpperCase().replace(/\s+/g,'').replace(/^([A-Z]+)(\d)/,(x,a,b)=>a+'-'+b).slice(0,30);
+ /* proveedor y NIT (el NIT de Transportes IGC es el adquirente, no el proveedor) */
+ const re=/(?:N\.?\s?I\.?\s?T\.?|NIT)\s*[:.\-]?\s*(\d{1,3}(?:[.\s]?\d{3}){2}\s*-?\s*\d?)/gi;let k,ni=-1;
+ for(let i=0;i<rows.length&&ni<0;i++){re.lastIndex=0;while((k=re.exec(rows[i].text))){const dg=k[1].replace(/\D/g,'');if(dg.indexOf(MYNIT)===0)continue;out.nit=k[1].replace(/\s+/g,'').trim();ni=i;break}}
+ const bad=/p[aá]gina|cufe|resoluci[oó]n|r[eé]gimen|adquirente|cliente|direcci[oó]n|tel[eé]fono|www\.|@|descripci|cant\.|unitario|c[oó]digo|\bitem\b/i,
+  cut=t=>t.split(/\s+(?:factura|fecha|nit|n\.i\.t|no\.|n[°º]|r[eé]gimen|cufe|tel[eé]fono|direcci[oó]n)\b/i)[0].replace(/[:\-–\s]+$/,'').trim(),
+  okn=t=>t.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g,'').length>=4&&!bad.test(t)&&!/^(factura|fecha)/i.test(t);
+ const lab=rows.find(r=>/(raz[oó]n social|emisor|vendedor|proveedor|nombre\s+o\s+raz)/i.test(r.text)&&/[:]\s*\S{3}/.test(r.text));
+ if(lab)out.p=cut(lab.text.split(/[:]\s*/).slice(1).join(' '));
+ if(!out.p&&ni>=0){const same=cut(rows[ni].text.split(/NIT|N\.I\.T/i)[0]);if(okn(same))out.p=same;
+  else for(let i=ni-1;i>=Math.max(0,ni-4);i--){const c=cut(rows[i].text);if(okn(c)){out.p=c;break}}}
+ if(!out.p)for(const r of rows.slice(0,8)){const c=cut(r.text);if(okn(c)){out.p=c;break}}
+ out.p=out.p.replace(/\s+/g,' ').replace(/[;()]/g,' ').trim().slice(0,80);
+ /* renglones */
+ let started=false,ended=false;
+ const hdr=r=>/(descripci|detalle|producto|art[ií]culo|concepto)/i.test(r.text)&&/(cant|qty)/i.test(r.text)&&/(unit|precio|valor|vr|vlr|total)/i.test(r.text);
+ rows.forEach(r=>{if(ended)return;if(hdr(r)){started=true;return}
+  const toks=r.text.split(/\s+/).filter(Boolean),nums=[];toks.forEach((t,i)=>{const v=pn(t);if(v!=null)nums.push({i,v})});
+  const f=nums.length>=3?findLine(nums):null;
+  if(f){started=true;const use=new Set(f.map(i=>nums[i].i));let rest=toks.filter((t,i)=>!use.has(i));
+   if(rest.length>2&&/^\d{1,3}$/.test(rest[0]))rest.shift();
+   rest=rest.filter(t=>!UNI.test(t)&&!/^\d{1,3}[.,]\d{2}%?$/.test(t)&&!/^\d+%$/.test(t));while(rest.length>1&&/^\d{1,2}$/.test(rest[rest.length-1]))rest.pop();
+   let ref='';if(rest.length>1&&/\d/.test(rest[0])&&/^[A-Za-z0-9\-_\/.]{3,25}$/.test(rest[0])&&pn(rest[0])==null||(rest.length>1&&/^\d{4,}$/.test(rest[0])))ref=rest.shift();
+   out.L.push({r:ref,d:rest.join(' ').trim(),q:r2(nums[f[0]].v),u:r2(nums[f[1]].v),t:r2(nums[f[2]].v)});return}
+  if(started&&STOP.test(r.text)&&out.L.length){ended=true;return}
+  if(started&&out.L.length&&/[A-Za-zÁÉÍÓÚÑáéíóúñ]{3}/.test(r.text)&&!/cufe|p[aá]gina|resoluci/i.test(r.text)&&r.text.length<120){const l=out.L[out.L.length-1];l.d=(l.d+' '+r.text).trim()}});
+ out.sum=r2(out.L.reduce((s,l)=>s+l.t,0));
+ /* total a pagar */
+ let bp=0,bv=null;rows.forEach(r=>{const nm=r.text.split(/\s+/).map(pn).filter(v=>v!=null&&v>0);if(!nm.length)return;
+  const p=/total\s*a\s*pagar|valor\s*a\s*pagar|neto\s*a\s*pagar|total\s*factura|total\s*general|gran\s*total|total\s*neto|total\s*documento/i.test(r.text)?3:(/^\s*total\b/i.test(r.text)&&!/sub|iva|desc|impuesto|retenci/i.test(r.text)?2:0);
+  const v=nm[nm.length-1];if(p>bp||(p===bp&&p>0&&v>bv)){bp=p;bv=v}});
+ out.tot=bv!=null?r2(bv):(out.L.length?out.sum:null);
+ if(!out.L.length)out.warn.push('No pude identificar renglones en el PDF (¿es un escaneo o una foto?). Puede agregarlos manualmente o cargar el PDF original electrónico.');
+ return out}
+/* ---------- relación guardada en el campo «repuestos» de la OT ---------- */
+const HR=/^═══ FACTURA (REPUESTOS|MANTENIMIENTO) N° (.*?) · Proveedor: (.*?) · NIT: (.*?) · TOTAL: (-?[\d.]+) ═══$/,LR=/^(.*?) \| (.*?) \| ([\d.]+) \| ([\d.]+) \| ([\d.]+)$/;
+function parseRep(txt){const free=[],B=[];let cur=null;String(txt||'').split('\n').forEach(l=>{const h=HR.exec(l.trim());
+  if(h){cur={k:h[1]==='REPUESTOS'?'R':'M',n:h[2],p:h[3],nit:h[4],tot:+h[5],L:[]};B.push(cur);return}
+  const m=cur&&LR.exec(l);if(m){cur.L.push({r:m[1].trim(),d:m[2],q:+m[3],u:+m[4],t:+m[5]});return}
+  if(cur&&!l.trim()){cur=null;return}if(cur){cur=null}free.push(l)});
+ return{free:free.join('\n').replace(/\n{3,}/g,'\n\n').trim(),B}}
+const ser=(free,B)=>[free,...B.map(b=>'═══ FACTURA '+(b.k==='R'?'REPUESTOS':'MANTENIMIENTO')+' N° '+b.n+' · Proveedor: '+b.p+' · NIT: '+(b.nit||'')+' · TOTAL: '+r2(b.tot)+' ═══\n'+b.L.map(l=>[l.r||'',String(l.d||'').replace(/[|\n]/g,' '),r2(l.q),r2(l.u),r2(l.t)].join(' | ')).join('\n'))].filter(Boolean).join('\n\n');
+const sumK=(B,k)=>B.filter(b=>b.k===k).reduce((s,b)=>s+(+b.tot||0),0);
+/* ---------- interfaz ---------- */
+document.head.insertAdjacentHTML('beforeend','<style>.fxb{margin:6px 0 10px;padding:8px 10px;border:1px dashed #9aa5b1;border-radius:10px;background:#fafcfe}.fxb .st{font-size:12px;color:#4a5560;margin-left:6px}.fxr{margin-top:8px;border-left:4px solid var(--a,#ce8813);padding:2px 0 2px 8px}.fxr h5{margin:2px 0;color:var(--p,#002e42);font-size:13px}.fxr table{font-size:12px;width:100%}.fxr td.n,.fxr th.n{text-align:right}#fxd{max-width:96vw;width:900px}#fxd input{width:100%;box-sizing:border-box}#fxd td input{padding:3px 5px;font-size:12px}#fxd .n input{text-align:right}</style>');
+function attach(d,o,mode){
+ const can=mode==='close'||!!d.querySelector('#sv');
+ const C={rep:null,cost:{},host:{},box:{}};
+ if(mode==='ot'){C.rep=d.querySelector('[data-n=repuestos]');C.cost.R=d.querySelector('[data-n=costo_repuestos]');C.cost.M=d.querySelector('[data-n=costo_mano_obra]');
+  [['R','factura_repuestos'],['M','factura_mantenimiento']].forEach(([k,n])=>{const i=d.querySelector('[data-n="'+n+'"]'),w=i&&i.closest('div');C.host[k]=w&&w.lastElementChild!==i?w.lastElementChild:null})}
+ else{let t=d.querySelector('#co_rel');if(!t){t=document.createElement('textarea');t.id='co_rel';t.hidden=true;t.value=o.repuestos||'';d.appendChild(t)}C.rep=t;C.cost.R=d.querySelector('#co_r');C.cost.M=d.querySelector('#co_m');C.host.R=d.querySelector('#co_hr');C.host.M=d.querySelector('#co_hm')}
+ if(!C.rep||!C.cost.R||!C.cost.M)return;
+ const render=k=>{const bx=C.box[k];if(!bx)return;const{B}=parseRep(C.rep.value),L=B.filter(b=>b.k===k);
+  bx.querySelector('.fxr-w').innerHTML=L.map((b,bi)=>`<div class=fxr><h5>🧾 ${esc(b.n)} · ${esc(b.p)}${b.nit?' · NIT '+esc(b.nit):''} · <b>Total ${fmt(b.tot)}</b>${can?` <button type=button class="s" data-rm="${esc(b.n)}" title="Quitar esta relación (el número de factura se conserva)">✕ quitar relación</button>`:''}</h5>
+   <div class=tw><table><tr><th>Referencia<th>${k==='R'?'Repuesto':'Servicio'}<th class=n>Cant.<th class=n>Valor unit.<th class=n>Total</tr>${b.L.map(l=>`<tr><td>${esc(l.r)}<td>${esc(l.d)}<td class=n>${l.q}<td class=n>${fmt(l.u)}<td class=n>${fmt(l.t)}`).join('')}</table></div></div>`).join('')};
+ ['R','M'].forEach(k=>{const h=C.host[k];if(!h)return;const bx=document.createElement('div');bx.className='fxb';C.box[k]=bx;
+  bx.innerHTML=(can?`<input type=file accept="application/pdf,.pdf" multiple hidden><button type=button class=s>📄 Cargar PDF de la factura de ${k==='R'?'repuestos':'mantenimiento / mano de obra'}</button><span class=st>Lee automáticamente N.º de factura, proveedor, referencia, ${k==='R'?'repuestos':'servicios'}, cantidad y totales.</span>`:'')+'<div class=fxr-w></div>';
+  h.insertAdjacentElement('afterend',bx);render(k);
+  if(can){const fi=bx.querySelector('input[type=file]'),bt=bx.querySelector('button'),st=bx.querySelector('.st');bt.onclick=()=>fi.click();
+   fi.onchange=async()=>{const fs=[...fi.files];fi.value='';for(const f of fs){st.textContent='⏳ Leyendo '+f.name+'…';try{await loadPdfjs();const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise,rows=await pdfRows(pdf),data=parseInvoice(rows);st.textContent='';await review(C,k,data,f.name)}catch(e){st.textContent='';console.error(e);msg('No se pudo leer el PDF: '+(e&&e.message||e),1)}}}}
+  bx.onclick=e=>{const b=e.target.closest('[data-rm]');if(!b)return;const P=parseRep(C.rep.value),i=P.B.findIndex(x=>x.k===k&&x.n===b.dataset.rm);if(i<0)return;if(!confirm('¿Quitar la relación de la factura '+b.dataset.rm+'? El costo se recalcula con las demás facturas cargadas.'))return;
+   const prev=sumK(P.B,k);P.B.splice(i,1);setRep(C,P,k,prev,null);render(k)}});
+ C.render=render;C.can=can;d.__fx=C}
+function setRep(C,P,k,prev,add){C.rep.value=ser(P.free,P.B);C.rep.dataset.dirty=1;fire(C.rep);const sum=sumK(P.B,k),cf=C.cost[k],cur=+cf.value||0;let nv=sum;
+ if(add!=null&&cur>0&&Math.abs(cur-prev)>.5)nv=confirm('Ya hay un costo registrado de '+fmt(cur)+'.\n\nAceptar = reemplazarlo por '+fmt(sum)+' (suma de las facturas cargadas).\nCancelar = sumarle esta factura ('+fmt(add)+').')?sum:cur+add;
+ else if(add==null&&cur>0&&Math.abs(cur-prev)>.5)nv=cur-(prev-sum);
+ cf.value=r2(Math.max(0,nv));fire(cf)}
+function addInv(h,n,p){if(!h)return;const rows=()=>[...h.querySelectorAll('[data-fn]')];let i=rows().findIndex(x=>x.value.trim()===n);
+ if(i<0){i=rows().findIndex(x=>!x.value.trim()&&!h.querySelector('[data-fp="'+x.dataset.fn+'"]').value.trim());if(i<0){const b=h.querySelector('[data-fa]');if(b)b.click();i=rows().length-1}}
+ const a=rows()[i];if(!a)return;const pe=h.querySelector('[data-fp="'+a.dataset.fn+'"]');a.value=n;fire(a);pe.value=p;fire(pe)}
+function review(C,k,data,fname){return new Promise(res=>{
+ let dl=document.getElementById('fxd');if(dl)dl.remove();dl=document.createElement('dialog');dl.id='fxd';document.body.appendChild(dl);
+ const L=data.L.map(x=>({...x})),M=k==='M';
+ const draw=()=>{dl.innerHTML=`<h3>📄 ${M?'Factura de mantenimiento / mano de obra':'Factura de repuestos'} · lectura automática</h3><p class=lgd>Archivo: <b>${esc(fname)}</b>. Revise y corrija lo que haga falta antes de aplicarlo a la orden.</p>
+ ${data.warn.map(w=>`<div class=wn>⚠ ${esc(w)}</div>`).join('')}
+ <div class=fg><div><label>N.º de factura</label><input id=fx_n value="${esc(data.n)}"></div><div><label>Proveedor</label><input id=fx_p list=dl_prov2 autocomplete=off value="${esc(data.p)}"></div><div><label>NIT del proveedor</label><input id=fx_i value="${esc(data.nit)}"></div><div class=n><label>Total a pagar ($)</label><input id=fx_t type=number step=any min=0 value="${data.tot==null?'':data.tot}"></div></div>
+ <div class=tw style="margin-top:8px"><table><tr><th>Referencia<th>${M?'Servicio / descripción':'Repuesto / descripción'}<th>Cant.<th>Valor unit.<th>Total<th></tr>${L.map((l,i)=>`<tr data-i="${i}"><td><input data-c=r value="${esc(l.r)}"><td><input data-c=d value="${esc(l.d)}"><td class=n><input data-c=q type=number step=any value="${l.q}"><td class=n><input data-c=u type=number step=any value="${l.u}"><td class=n><input data-c=t type=number step=any value="${l.t}"><td><button type=button class=d data-x="${i}">✕</button>`).join('')||'<tr><td colspan=6>Sin renglones. Agréguelos con «＋ Renglón».'}</table></div>
+ <div class=bar style="margin-top:6px"><button type=button class=s id=fx_a>＋ Renglón</button><span id=fx_s class=lgd></span></div><div id=fx_w></div>
+ <div class=bar style="margin-top:10px"><button type=button id=fx_ok>✔ Aplicar a la orden</button><button type=button class=s id=fx_x>Cancelar</button></div>
+ <small>Al aplicar: se agrega la factura (N.º y proveedor), se guarda la relación en la orden y el costo de ${M?'mano de obra':'repuestos'} se actualiza con el total de las facturas cargadas. Recuerde pulsar <b>Guardar</b> en la orden.</small>`;stat()};
+ const stat=()=>{const s=r2(L.reduce((a,l)=>a+(+l.t||0),0)),t=+(dl.querySelector('#fx_t')||{}).value||0,el=dl.querySelector('#fx_s'),w=dl.querySelector('#fx_w');if(!el)return;
+  el.innerHTML='Suma de renglones: <b>'+fmt(s)+'</b>'+(t?' · Total a pagar: <b>'+fmt(t)+'</b>':'');
+  w.innerHTML=t&&L.length&&Math.abs(s-t)>1?'<div class=wn>ℹ La suma de los renglones ('+fmt(s)+') difiere del total a pagar ('+fmt(t)+') en '+fmt(Math.abs(t-s))+'. Suele ser IVA, descuentos o retenciones; revise que no falte ningún renglón.</div>':''};
+ draw();dl.showModal();
+ const close=v=>{dl.close();dl.remove();res(v)};
+ dl.oninput=e=>{const t=e.target,tr=t.closest('tr[data-i]');if(tr&&t.dataset.c){const l=L[+tr.dataset.i],c=t.dataset.c;l[c]=['q','u','t'].includes(c)?(+t.value||0):t.value;
+   if(c==='q'||c==='u'){l.t=r2(l.q*l.u);const ti=tr.querySelector('[data-c=t]');if(ti)ti.value=l.t}}stat()};
+ dl.onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.id==='fx_x')return close(false);
+  if(b.id==='fx_a'){data.n=dl.querySelector('#fx_n').value;data.p=dl.querySelector('#fx_p').value;data.nit=dl.querySelector('#fx_i').value;data.tot=dl.querySelector('#fx_t').value;L.push({r:'',d:'',q:1,u:0,t:0});return draw()}
+  if(b.dataset.x!=null){data.n=dl.querySelector('#fx_n').value;data.p=dl.querySelector('#fx_p').value;data.nit=dl.querySelector('#fx_i').value;data.tot=dl.querySelector('#fx_t').value;L.splice(+b.dataset.x,1);return draw()}
+  if(b.id==='fx_ok'){const n=dl.querySelector('#fx_n').value.trim().replace(/[;()|]/g,' '),p=dl.querySelector('#fx_p').value.trim().replace(/[;()|]/g,' '),nit=dl.querySelector('#fx_i').value.trim(),
+    lines=L.filter(l=>String(l.d||'').trim()||String(l.r||'').trim()||+l.t),tot=+dl.querySelector('#fx_t').value||r2(lines.reduce((a,l)=>a+(+l.t||0),0));
+   if(!n)return msg('Indique el número de la factura',1);if(!p)return msg('Indique el proveedor de la factura',1);if(!(tot>0))return msg('Indique el total a pagar',1);
+   const P=parseRep(C.rep.value),prev=sumK(P.B,k),ix=P.B.findIndex(x=>x.k===k&&x.n===n);if(ix>=0)P.B.splice(ix,1);
+   P.B.push({k,n,p,nit,tot,L:lines.map(l=>({r:String(l.r||'').trim(),d:String(l.d||'').trim(),q:+l.q||0,u:+l.u||0,t:+l.t||0}))});
+   addInv(C.host[k],n,p);setRep(C,P,k,prev,ix>=0?null:tot);if(ix>=0){}C.render(k);
+   if(k==='M'&&C.mode!=='close'){const tl=document.querySelector('#dlg [data-n=taller]');if(tl&&!tl.value.trim()){tl.value=p;fire(tl)}}
+   msg('Factura '+n+' aplicada: '+lines.length+' renglón(es) · '+fmt(tot)+'. Pulse Guardar en la orden.');close(true)}}})}
+window.facPdf={attach,extra:d=>{const t=d.querySelector('#co_rel');return t&&t.dataset.dirty?{repuestos:t.value}:{}},_t:{pn,parseInvoice,pdfRows,parseRep,ser,review}};
+const _od=window.otDecor;window.otDecor=function(d,o){const r=_od.apply(this,arguments);try{attach(d,o,'ot')}catch(e){console.error(e)}return r};
+})();
+
+</script>
 </body></html>
