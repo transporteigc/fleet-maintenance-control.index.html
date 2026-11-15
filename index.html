@@ -2465,4 +2465,150 @@ window.novPage=async function(m){
 })();
 
 </script>
+<style id="vz-css">
+.vz-mic{position:fixed;z-index:2147483000;width:30px;height:30px;border-radius:50%;border:0;background:var(--p,#002e42);color:#fff;font-size:15px;line-height:30px;padding:0;margin:0;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3);display:none}
+.vz-mic.on{background:#c62828;animation:vzp 1s infinite}
+@keyframes vzp{0%{box-shadow:0 0 0 0 rgba(198,40,40,.55)}100%{box-shadow:0 0 0 13px rgba(198,40,40,0)}}
+.vz-fab{position:fixed;right:16px;bottom:16px;z-index:2147483000;border:0;border-radius:28px;background:var(--p,#002e42);color:#fff;padding:11px 16px;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);margin:0}
+.vz-fab.on{background:#c62828}
+.vz-live{position:fixed;left:50%;transform:translateX(-50%);bottom:66px;max-width:92vw;background:#1c2530;color:#fff;padding:8px 14px;border-radius:12px;font-size:14px;z-index:2147483000;display:none;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.cdi{cursor:pointer}
+</style>
+<script>
+/* ===== Calendario: TODAS las órdenes de trabajo abiertas/programadas + clic para abrir la orden ===== */
+(()=>{
+const nrm=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+const ND=x=>{const s=String(x==null?'':x).trim();if(!s)return'';let m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s);if(m)return m[1]+'-'+m[2]+'-'+m[3];
+ m=/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/.exec(s);if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+ const d=new Date(s);return isNaN(d)?'':d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const CERR=/^(cerrad|cancelad|rechazad)/;
+const _ce=window.calEv;
+window.calEv=function(){const r=_ce.apply(this,arguments);
+ try{
+  const t=today(),NV=new Map((D.Novedades||[]).map(n=>[n.id,n]));
+  r.E=r.E.filter(e=>e.tp!=='ot');
+  (D.Ordenes||[]).filter(o=>o&&!CERR.test(nrm(o.estado))).forEach(o=>{
+   const prog=ND(o.fecha)||ND(o.fecha_inicio),nv=NV.get(o.novedad_id),f=prog||ND(nv&&nv.fecha)||t,sin=!prog;
+   const est=o.estado||'Reportada',run=/ejecuci|prueba/.test(nrm(est));
+   let lv={P1:1,P2:2,P3:3,P4:4}[o.prioridad]||3;
+   const atras=!sin&&f<t&&!run;if(atras)lv=Math.min(lv,2);
+   const tit=(o.componente||String(o.actividades||'').replace(/^\[[^\]]*\]\s*/,'').slice(0,50)||'Orden de trabajo')+(o.id?' ('+o.id+')':'');
+   r.E.push({f,tp:'ot',eq:o.equipo||'—',tit,lv,
+    det:est+(o.responsable?' · '+o.responsable:'')+(o.taller?' · '+o.taller:'')+(sin?' · ⚠ sin fecha programada: asígnela en la orden':'')+(atras?' · ⚠ fecha programada vencida':'')+' · clic para abrir la orden'})});
+ }catch(e){console.error('calEv OT',e)}
+ return r};
+document.addEventListener('click',e=>{const c=e.target.closest&&e.target.closest('.cdi'),mn=document.getElementById('main');
+ if(!c||!mn||!mn.contains(c))return;const tx=c.textContent,o=(D.Ordenes||[]).find(x=>x&&x.id&&tx.includes('('+x.id+')'));
+ if(o)edit('Ordenes',o,canW())});
+})();
+</script>
+<script>
+/* ===== Dictado por voz (Web Speech API, español de Colombia) en todos los campos ===== */
+(()=>{
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const nrm=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const toast=(t,bad)=>{try{msg(t,bad)}catch(e){alert(t)}};
+/* ---------- números en palabras ---------- */
+const U={cero:0,un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20,veintiuno:21,veintiun:21,veintidos:22,veintitres:23,veinticuatro:24,veinticinco:25,veintiseis:26,veintisiete:27,veintiocho:28,veintinueve:29,treinta:30,cuarenta:40,cincuenta:50,sesenta:60,setenta:70,ochenta:80,noventa:90,cien:100,ciento:100,doscientos:200,doscientas:200,trescientos:300,trescientas:300,cuatrocientos:400,cuatrocientas:400,quinientos:500,quinientas:500,seiscientos:600,seiscientas:600,setecientos:700,setecientas:700,ochocientos:800,ochocientas:800,novecientos:900,novecientas:900};
+function w2n(s){const tk=nrm(s).replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(Boolean);let tot=0,cur=0,any=false;
+ for(const w of tk){if(w==='y'||w==='de'||w==='con')continue;if(/^(pesos?|kilometros?|km|horas?|h|cop|dolares?)$/.test(w))continue;
+  if(/^\d+$/.test(w)){cur+=+w;any=true;continue}
+  if(w==='mil'){tot+=(cur||1)*1000;cur=0;any=true;continue}
+  if(/^millon(es)?$/.test(w)){tot=(tot+(cur||1))*1e6;cur=0;any=true;continue}
+  if(U[w]!=null){cur+=U[w];any=true;continue}
+  return null}
+ return any?tot+cur:null}
+function parseNum(s){let x=nrm(s).replace(/\$|pesos|kilometros?|\bkm\b|horas?|\bcop\b/g,' ').trim();
+ if(/\d/.test(x)){x=x.replace(/(\d)\s+(?=\d{3}(\D|$))/g,'$1').replace(/(\d)\.(?=\d{3}(\D|$))/g,'$1').replace(',','.');const m=x.match(/-?\d+(\.\d+)?/);return m?m[0]:null}
+ const n=w2n(x);return n==null?null:String(n)}
+/* ---------- fechas ---------- */
+const MS={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12},p2=n=>String(n).padStart(2,'0');
+function parseDate(s){const x=nrm(s).replace(/[.,]/g,' ').replace(/\s+/g,' ').trim(),t=today();
+ if(/\bpasado manana\b/.test(x))return addDays(t,2);if(/\bantier\b|\banteayer\b/.test(x))return addDays(t,-2);
+ if(/\bhoy\b/.test(x))return t;if(/\bayer\b/.test(x))return addDays(t,-1);if(/\bmanana\b/.test(x))return addDays(t,1);
+ let m=/(\d{4})-(\d{1,2})-(\d{1,2})/.exec(x);if(m)return m[1]+'-'+p2(m[2])+'-'+p2(m[3]);
+ m=/(\d{1,2})\s*[\/\-]\s*(\d{1,2})\s*[\/\-]\s*(\d{2,4})/.exec(x);if(m){const y=m[3].length===2?'20'+m[3]:m[3];return y+'-'+p2(m[2])+'-'+p2(m[1])}
+ m=/^(.*?)\s*\bde\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b(?:\s+(?:de|del)?\s*(.+))?$/.exec(x);
+ if(m){const ds=m[1].replace(/\b(el|dia|del)\b/g,'').trim();let d=/^\d+$/.test(ds)?+ds:(ds==='primero'?1:w2n(ds));if(!d||d<1||d>31)return null;
+  let y=+t.slice(0,4);if(m[3]){const ys=m[3].trim(),yv=/^\d{2,4}$/.test(ys)?+ys:w2n(ys);if(yv)y=yv<100?2000+yv:yv}
+  return y+'-'+p2(MS[m[2]])+'-'+p2(d)}
+ return null}
+/* ---------- horas ---------- */
+function parseTime(s){let x=nrm(s).replace(/[.,]/g,' ').replace(/\b([ap])\s*m\b/g,'$1m').replace(/\s+/g,' ').trim();
+ if(/medio ?dia/.test(x))return'12:00';if(/media ?noche/.test(x))return'00:00';
+ const pm=/\bpm\b|de la tarde|de la noche|\btarde\b|\bnoche\b/.test(x),am=/\bam\b|de la manana|madrugada|\bmanana\b/.test(x);let h,mi=0,m=/(\d{1,2})\s*[:h]\s*(\d{2})/.exec(x)||/\b(\d{1,2})\s+(?:y\s+)?(\d{2})\b/.exec(x);
+ if(m){h=+m[1];mi=+m[2]}else{let rest=x;const d=/\b(\d{1,2})\b/.exec(x);
+  if(d){h=+d[1];rest=x.slice(x.indexOf(d[0])+d[0].length)}else{const tk=x.split(' '),i=tk.findIndex(w=>U[w]!=null&&U[w]<=24);if(i<0)return null;h=U[tk[i]];rest=tk.slice(i+1).join(' ')}
+  if(/menos cuarto/.test(rest)){h-=1;mi=45}else if(/media/.test(rest))mi=30;else if(/cuarto/.test(rest))mi=15;
+  else{const mm=rest.replace(/\b(y|con|en punto|de la|manana|tarde|noche|madrugada|am|pm|horas?)\b/g,' ').trim();if(mm){const v=/\d/.test(mm)?+mm.match(/\d+/)[0]:w2n(mm);if(v!=null&&v<60)mi=v}}}
+ if(pm&&h<12)h+=12;if(am&&h===12)h=0;if(h<0||h>23||mi>59)return null;return p2(h)+':'+p2(mi)}
+window.__vzParse={num:parseNum,date:parseDate,time:parseTime};
+/* ---------- puntuación hablada ---------- */
+const ID=/^(codigo|placa|vin|serial|dot|n_motor|numero_factura|factura_repuestos|factura_mantenimiento|factura|referencia|usuario)$/i;
+function cmd(raw,area){let t=' '+raw+' ';
+ t=t.replace(/\s+punto y aparte\b/gi,area?'.\n':'. ').replace(/\s+nueva l[ií]nea\b/gi,area?'\n':' ').replace(/\s+punto y coma\b/gi,';').replace(/\s+dos puntos\b/gi,':')
+  .replace(/\s+punto seguido\b/gi,'. ').replace(/\s+punto final\b/gi,'.').replace(/\s+coma\b/gi,',').replace(/\s+signo de interrogaci[oó]n\b/gi,'?')
+  .replace(/\s+abrir par[eé]ntesis\s*/gi,' (').replace(/\s+cerrar par[eé]ntesis\b/gi,')').replace(/\s+punto\s*$/i,'.');return t.trim()}
+/* ---------- estado ---------- */
+let T=null,rec=null,want=false,on=false,lastFin='',lastAt=0;
+const mic=document.createElement('button'),fab=document.createElement('button'),live=document.createElement('div');
+mic.type=fab.type='button';mic.className='vz-mic';mic.title='Dictar por voz (Alt+M)';mic.textContent='🎤';fab.className='vz-fab';live.className='vz-live';
+const okEl=el=>{if(!el||!el.tagName||el.readOnly||el.disabled)return false;if(el.closest&&el.closest('.vz-mic,.vz-fab'))return false;const n=el.tagName;if(n==='TEXTAREA'||n==='SELECT')return true;
+ return n==='INPUT'&&!/^(password|hidden|checkbox|radio|file|button|submit|reset|range|color|image)$/i.test(el.type||'text')};
+const kindOf=el=>{if(el.tagName==='SELECT')return'select';if(el.tagName==='TEXTAREA')return'area';const k=(el.type||'text').toLowerCase();return k==='number'?'number':k==='date'?'date':k==='time'?'time':'text'};
+const host=()=>{const d=[...document.querySelectorAll('dialog[open]')];return d.length?d[d.length-1]:document.body};
+function ui(){mic.classList.toggle('on',on);mic.textContent=on?'⏹':'🎤';fab.classList.toggle('on',on);fab.textContent=on?'⏹ Detener dictado':'🎤 Dictar por voz';live.style.display=on?'block':'none'}
+function place(){const h=host();[mic,fab,live].forEach(e=>{if(e.parentNode!==h)h.appendChild(e)});
+ if(!T||!T.isConnected||(document.activeElement!==T&&!on)){mic.style.display='none';return}
+ const r=T.getBoundingClientRect();if(!r.width||r.bottom<0||r.top>innerHeight){mic.style.display='none';return}
+ const k=(T.type||'').toLowerCase(),off=T.tagName==='SELECT'||/^(date|time|number)$/.test(k)?34:4;
+ mic.style.display='block';mic.style.left=Math.max(0,r.right-30-off)+'px';mic.style.top=(T.tagName==='TEXTAREA'?r.top+4:r.top+(r.height-30)/2)+'px'}
+const fire=el=>{el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))};
+function setV(el,v){el.value=v;fire(el)}
+function pick(el,raw){let q=nrm(raw).replace(/[.,;]/g,'').replace(/\b([a-z])\s+(\d)/g,'$1$2').trim(),best=null,sc=0;const qs=q.replace(/\s/g,'');
+ [...el.options].forEach(o=>{const tx=nrm(o.text||o.value).trim();if(!tx||tx==='—')return;let s=0;
+  if(tx===q||tx.replace(/\s/g,'')===qs)s=100;else if(q.length>1&&tx.includes(q))s=80;else if(tx.length>1&&q.includes(tx))s=70;
+  else{const a=q.split(/\s+/),b=tx.split(/[\s\/·\-]+/);s=10*a.filter(w=>w.length>2&&b.some(x=>x.startsWith(w)||w.startsWith(x))).length}
+  if(s>sc){sc=s;best=o}});
+ if(!best||sc<10)return toast('No encontré «'+raw.trim()+'» entre las opciones. Diga el nombre como aparece en la lista.',1);
+ setV(el,best.value);toast('Seleccionado: '+best.text.trim())}
+function ins(el,raw){const nm=(el.dataset&&el.dataset.n)||el.id||el.name||'',isId=ID.test(nm);let a=cmd(raw,el.tagName==='TEXTAREA');
+ if(isId)a=a.replace(/\s+guion\s+/gi,'-').replace(/\s+/g,'').toUpperCase();if(!a)return;
+ const v=el.value||'';let s=null,e=null;try{s=el.selectionStart;e=el.selectionEnd}catch(x){}
+ const i=s==null?v.length:s,j=e==null?v.length:e,pre=v.slice(0,i),post=v.slice(j);
+ if(!isId&&(!pre||/[.!?]\s*$|\n\s*$/.test(pre)))a=a[0].toUpperCase()+a.slice(1);
+ const sp=!isId&&pre&&!/[\s(¿¡]$/.test(pre)&&!/^[.,;:?!)\n]/.test(a)?' ':'',pos=(pre+sp+a).length;
+ el.value=pre+sp+a+post;try{el.setSelectionRange(pos,pos)}catch(x){}fire(el)}
+function apply(el,raw){const k=kindOf(el);let v;
+ if(k==='select')return pick(el,raw);
+ if(k==='number'){v=parseNum(raw);if(v==null)return toast('No entendí el número: «'+raw.trim()+'»',1);return setV(el,v)}
+ if(k==='date'){v=parseDate(raw);if(!v)return toast('No entendí la fecha: «'+raw.trim()+'». Diga por ejemplo «14 de noviembre de 2026» o «hoy».',1);
+  if(el.max&&v>el.max)return toast('Esa fecha ('+v+') supera la máxima permitida para este campo ('+el.max+').',1);if(el.min&&v<el.min)return toast('Esa fecha ('+v+') es anterior a la mínima permitida ('+el.min+').',1);return setV(el,v)}
+ if(k==='time'){v=parseTime(raw);if(!v)return toast('No entendí la hora: «'+raw.trim()+'». Diga por ejemplo «ocho y treinta de la mañana».',1);return setV(el,v)}
+ ins(el,raw)}
+const HINT={select:'Diga el nombre de la opción',number:'Diga el número, ej.: «doce mil quinientos»',date:'Diga la fecha, ej.: «14 de noviembre» u «hoy»',time:'Diga la hora, ej.: «ocho y treinta de la mañana»',text:'Hable ahora… (diga «coma» o «punto y aparte» para puntuar)',area:'Hable ahora… (diga «coma» o «punto y aparte» para puntuar)'};
+const errMsg=c=>c==='not-allowed'||c==='service-not-allowed'?'El navegador bloqueó el micrófono. Permítalo con el candado de la barra de direcciones. Si la app está incrustada en otra página, ábrala directamente en su propia pestaña (URL del despliegue /exec).':c==='audio-capture'?'No se detecta ningún micrófono.':c==='network'?'El dictado necesita conexión a internet.':'No se pudo dictar ('+c+').';
+function stop(){want=false;if(rec){const r=rec;rec=null;try{r.stop()}catch(e){}}on=false;ui()}
+function start(el){
+ if(!SR)return toast('Este navegador no permite dictado por voz. Use Google Chrome o Microsoft Edge, o el micrófono del teclado del celular.',1);
+ if(!okEl(el))return toast('Toque primero el campo donde quiere dictar y luego pulse 🎤.',1);
+ stop();T=el;want=true;const k=kindOf(el),cont=k==='text'||k==='area',r=new SR();rec=r;r.lang='es-CO';r.interimResults=true;r.continuous=cont;r.maxAlternatives=1;
+ live.textContent=HINT[k];
+ r.onstart=()=>{on=true;ui()};
+ r.onresult=ev=>{let fin='',it='';for(let i=ev.resultIndex;i<ev.results.length;i++){const x=ev.results[i];if(x.isFinal)fin+=x[0].transcript;else it+=x[0].transcript}
+  if(fin){const n=Date.now();if(fin===lastFin&&n-lastAt<1200)return;lastFin=fin;lastAt=n;apply(T,fin);live.textContent='✔ '+fin.trim();if(!cont)stop()}else if(it)live.textContent=it};
+ r.onerror=ev=>{if(ev.error==='no-speech'||ev.error==='aborted')return;want=false;toast(errMsg(ev.error),1)};
+ r.onend=()=>{on=false;if(want&&cont&&rec===r){try{r.start();return}catch(e){}}if(rec===r)rec=null;want=false;ui()};
+ try{r.start()}catch(e){want=false;toast('No se pudo iniciar el micrófono.',1)}}
+const press=e=>e.preventDefault();
+['mousedown','pointerdown','touchstart'].forEach(ev=>{mic.addEventListener(ev,press,{passive:false});fab.addEventListener(ev,press,{passive:false})});
+mic.onclick=()=>on?stop():start(T);
+fab.onclick=()=>{if(on)return stop();const a=document.activeElement;start(okEl(a)?a:T)};
+document.addEventListener('focusin',e=>{if(!okEl(e.target))return;if(on&&e.target!==T)stop();T=e.target;place()},true);
+document.addEventListener('keydown',e=>{if(e.altKey&&!e.ctrlKey&&(e.key==='m'||e.key==='M')){e.preventDefault();on?stop():start(okEl(document.activeElement)?document.activeElement:T)}});
+addEventListener('scroll',place,true);addEventListener('resize',place);setInterval(place,350);
+document.addEventListener('DOMContentLoaded',()=>{ui();place()});if(document.readyState!=='loading'){ui();place()}
+})();
+</script>
+
 </body></html>
