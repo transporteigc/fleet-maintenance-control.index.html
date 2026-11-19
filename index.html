@@ -2730,5 +2730,263 @@ window.facPdf={attach,extra:d=>{const t=d.querySelector('#co_rel');return t&&t.d
 const _od=window.otDecor;window.otDecor=function(d,o){const r=_od.apply(this,arguments);try{attach(d,o,'ot')}catch(e){console.error(e)}return r};
 })();
 
+
+/* ===== IGC · Balance de costos por vehículo · Facturas en engrase y aceites · Plan anual sincronizado con OT y calendario ===== */
+(()=>{
+const FT=()=>window.facPdf&&window.facPdf._t||null;
+const mny=n=>'$'+Math.round(+n||0).toLocaleString('es-CO');
+const r2=n=>Math.round((+n||0)*100)/100;
+const OKD=/^\d{4}-\d{2}-\d{2}$/,d10=x=>String(x||'').slice(0,10),pad=n=>String(n).padStart(2,'0');
+const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const plc=c=>{const q=eqs().find(x=>x.codigo===c)||{};return q.placa||c};
+const eqTxt=c=>{const p=plc(c);return esc(c)+(p&&p!==c?' · '+esc(p):'')};
+const OPEN=['Cerrada','Cancelada','Rechazada','Suspendida'];
+document.head.insertAdjacentHTML('beforeend','<style>.pa{font-size:12px}.pa td,.pa th{padding:4px 6px;text-align:center;white-space:nowrap}.pa td.l,.pa th.l{text-align:left}.pa tr.pg td{background:#e8eef3;font-weight:700;text-align:left;color:#002e42}.pa td.cc{cursor:pointer;font-weight:600;min-width:34px}.c-ok{background:#d9f2db;color:#1b5e20}.c-miss{background:#fdd;color:#b71c1c}.c-part{background:#ffe0b2;color:#e65100}.c-pend{background:#fff0c2;color:#8a6100}.c-fut{background:#e3f0fb;color:#0d47a1}.pa .c-no{color:#b0b8c0}.pal{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;margin:6px 0}.pal i{display:inline-block;width:14px;height:12px;border-radius:3px;vertical-align:middle;margin-right:4px}.balb{display:inline-block;height:14px}.balr{cursor:pointer}.balr:hover td{background:#fafcfe}.balr.sel td{background:#eef6fb}</style>');
+
+/* ================= Costos guardados en Servicios (sin cambiar el servidor): dentro de «notas» ================= */
+const CM=/^\[COSTOS r=(-?[\d.]+) m=(-?[\d.]+)\]\n?/;
+const sumK=(B,k)=>B.filter(b=>b.k===k).reduce((s,b)=>s+(+b.tot||0),0);
+function svcInfo(s){const raw=String(s&&s.notas||''),m=CM.exec(raw),body=m?raw.slice(m[0].length):raw,t=FT(),P=t?t.parseRep(body):{free:body,B:[]};
+ return{free:P.free,B:P.B,r:m?+m[1]:sumK(P.B,'R'),m:m?+m[2]:sumK(P.B,'M')}}
+function svcNotas(free,B,r,m){const body=FT().ser(free,B);return((+r>0||+m>0)?'[COSTOS r='+r2(r)+' m='+r2(m)+']\n':'')+body}
+const facTxt=B=>B.map(b=>b.n+(b.p?' ('+b.p+')':'')).join(' ; ');
+
+/* ================= Bloque de costos + ZIP de factura electrónica (reutiliza el lector de las OT) ================= */
+function costBlock(d,before,o){o=o||{};const blk=document.createElement('div');blk.className='fg';
+ blk.innerHTML='<div class=w><h4 style="margin:8px 0 0;color:var(--p);border-top:2px solid var(--a);padding-top:6px">Costos y facturas (cargue el ZIP de la factura electrónica)</h4></div><div><label>Costo de repuestos ($)</label><input id=co_r type=number min=0 step=any value="'+(o.r||'')+'"></div><div><label>Costo de mano de obra ($)</label><input id=co_m type=number min=0 step=any value="'+(o.m||'')+'"></div><div class=w id=co_hr></div><div class=w id=co_hm></div>';
+ before.parentNode.insertBefore(blk,before);
+ const WR=window.facWidget(d.querySelector('#co_hr'),{value:o.fr||''},'🧾 Facturas de repuestos (número y proveedor)'),WM=window.facWidget(d.querySelector('#co_hm'),{value:o.fm||''},'🧾 Facturas de mano de obra / mantenimiento (número y proveedor)');
+ window.facPdf.attach(d,{repuestos:o.rel||''},'close');return{WR,WM}}
+function gather(d,W){const t=FT(),P=t.parseRep((d.querySelector('#co_rel')||{}).value||''),B=P.B.slice(),r=+d.querySelector('#co_r').value||0,m=+d.querySelector('#co_m').value||0;
+ [['R',W.WR.get()],['M',W.WM.get()]].forEach(([k,s])=>window.facParse(s).forEach(f=>{const ex=B.find(b=>b.k===k&&b.n===f.n);if(ex){if(!ex.p&&f.p)ex.p=f.p}else if(f.n&&f.n!=='S/N')B.push({k,n:f.n,p:f.p,nit:'',tot:0,L:[]})}));
+ let err='';
+ if(r>0&&!B.some(b=>b.k==='R'))err='Indique el número de factura que soporta el costo de repuestos (o cargue el ZIP)';
+ else if(m>0&&!B.some(b=>b.k==='M'))err='Indique el número de factura que soporta el costo de mano de obra (o cargue el ZIP)';
+ else{const x=B.find(b=>!String(b.p||'').trim());if(x)err='Indique el proveedor de la factura '+x.n}
+ return{r,m,B,err}}
+const RLOCK=()=>{try{window.ensOrd&&window.ensOrd()}catch(e){}};
+
+/* ---- Aceite / valvulina: el diálogo de registro ahora admite facturas ---- */
+const _svc=window.svcDialog;
+window.svcDialog=function(tipo0,done){const r=_svc.apply(this,arguments);
+ try{const d=$('#dlg'),ok=d.querySelector('#sv_ok'),bar=d.querySelector('.bar');if(!ok||!bar||!FT())return r;
+  const vis=d.querySelector('#sv_n');vis.id='sv_n_v';const hid=document.createElement('textarea');hid.id='sv_n';hid.hidden=true;vis.insertAdjacentElement('afterend',hid);
+  const W=costBlock(d,bar,{}),orig=ok.onclick;
+  ok.onclick=async function(ev){const G=gather(d,W);if(G.err)return msg(G.err,1);hid.value=svcNotas($('#sv_n_v').value.trim(),G.B,G.r,G.m);return orig.call(this,ev)}}catch(e){console.error(e)}
+ return r};
+
+/* ---- Facturas y costos de un servicio ya registrado ---- */
+function svcFacDialog(s,after){const d=$('#dlg'),inf=svcInfo(s),can=canW();d.className='';
+ d.innerHTML='<h3>🧾 Facturas y costos · '+esc(s.tipo||'Servicio')+' · '+esc(s.equipo)+' · '+fmtD(d10(s.fecha))+'</h3><div class=bar style="margin-top:10px">'+(can?'<button id=sf_ok>Guardar</button>':'')+'<button class=s id=sf_x>Cerrar</button></div>';
+ const W=costBlock(d,d.querySelector('.bar'),{r:inf.r,m:inf.m,fr:facTxt(inf.B.filter(b=>b.k==='R')),fm:facTxt(inf.B.filter(b=>b.k==='M')),rel:FT().ser('',inf.B)});
+ d.showModal();$('#sf_x').onclick=()=>d.close();
+ if($('#sf_ok'))$('#sf_ok').onclick=async()=>{const G=gather(d,W);if(G.err)return msg(G.err,1);
+  try{await call('save','Servicios',{id:s.id,notas:svcNotas(inf.free,G.B,G.r,G.m)});d.close();msg('Facturas y costos guardados');await load('Servicios');after&&after()}catch(x){msg('Error: '+(x&&x.message||x),1)}}}
+
+/* ---- Historial de aceite con costos y facturas ---- */
+window.histOil=function(box){const Tc=D.Tractocamiones.map(t=>t.codigo),W=window.hoq=window.hoq||{e:''},can=canW(),
+ fl=v=>v==='Si'?'<span style="color:#2e7d32">✔</span>':v==='No'?'<span style="color:#c62828">✘</span>':'<small>—</small>';
+ const draw=()=>{const rows=[];Tc.filter(e=>!W.e||e===W.e).forEach(e=>{const A=svcOf(e,s=>s.tipo==='Cambio de aceite de motor'||s.tipo==='Solo filtros');A.forEach((s,j)=>{const p=A[j-1],dd=p?daysBetween(d10(p.fecha),d10(s.fecha)):null,dk=p&&s.km!==''&&p.km!==''&&s.km!=null&&p.km!=null?+s.km-+p.km:null;rows.push([e,s,(dd==null?'—':dd+' d')+(dk!=null&&dk>=0?' · '+fmt(dk)+' km':'')])})});
+  rows.sort((a,b)=>a[0].localeCompare(b[0])||d10(b[1].fecha).localeCompare(d10(a[1].fecha)));
+  let tr=0,tm=0;
+  const body=rows.map(([e,s,dsc])=>{const inf=svcInfo(s),n=inf.free,pc=/^POR CONFIRMAR/.test(n);tr+=inf.r;tm+=inf.m;
+   return[esc(e),fmtD(d10(s.fecha)),esc(s.tipo==='Solo filtros'?'Solo filtros':'Aceite y filtros'),s.km===''||s.km==null?'—':fmt(s.km)+' km',s.horas===''||s.horas==null?'—':fmt(s.horas)+' h',dsc,fl(s.f_aceite),fl(s.f_combustible),fl(s.f_trampa),fl(s.f_agua),fl(s.f_aire),
+    inf.r?mny(inf.r):'—',inf.m?mny(inf.m):'—',inf.B.length?'<small title="'+esc(facTxt(inf.B))+'">🧾 '+inf.B.length+' · '+esc(inf.B.map(b=>b.n).join(', ').slice(0,40))+'</small>':'<small>—</small>',
+    (pc?'<span class="b y">⚠ Por confirmar</span> ':'')+'<span title="'+esc(n)+'">'+esc(n.replace(/^POR CONFIRMAR · /,'').slice(0,120))+(n.length>120?'…':'')+'</span>',
+    s.id&&!s._x?'<button class=s data-sf="'+esc(s.id)+'">🧾 '+(can?'Facturas':'Ver')+'</button>':'<small>—</small>']});
+  $('#hxt').innerHTML=TB(['Equipo','Fecha','Tipo','Odómetro','Horómetro','Desde el cambio anterior','Aceite','Combust.','Trampa','Agua','Aire','Repuestos','Mano de obra','Facturas','Observación',''],body)+'<p><b>Total mostrado:</b> repuestos '+mny(tr)+' · mano de obra '+mny(tm)+' · '+mny(tr+tm)+'</p>'};
+ box.innerHTML='<div class=bar><select id=hxe><option value="">Todos los vehículos</option>'+Tc.map(c=>'<option '+(c===W.e?'selected':'')+'>'+esc(c)+'</option>').join('')+'</select></div><div id=hxt></div><p><small>✔ filtro cambiado · ✘ no se cambió · — sin dato. Los costos salen de las facturas electrónicas (ZIP) cargadas en cada servicio con «🧾 Facturas». Los registros del Excel histórico deben guardarse en el sistema para poder asociarles facturas.</small></p>';
+ $('#hxe').onchange=e=>{W.e=e.target.value;draw()};
+ box.onclick=e=>{const b=e.target.closest('[data-sf]');if(!b)return;const s=(D.Servicios||[]).find(x=>x.id===b.dataset.sf);if(s)svcFacDialog(s,()=>{try{draw()}catch(x){}})};
+ draw()};
+
+/* ================= MOTOR DEL PLAN ANUAL: protocolo → fechas → ejecutado automático (OT + servicios) ================= */
+const STOP=new Set(['revisar','cambio','inspeccion','verificar','general','sistema','cada','mantenimiento','control','revision','ajuste','limpieza','estado']);
+const KIND=a=>{a=norm(a);return /valvulina/.test(a)?'valvulina':/filtro (de )?aire/.test(a)?'aire':/engrase/.test(a)?'engrase':/aceite/.test(a)&&/diferencial/.test(a)?'engrase':/aceite/.test(a)?'aceite':'otro'};
+function pairsMap(){const mp={},add=(a,b)=>{(mp[a]=mp[a]||new Set()).add(b);(mp[b]=mp[b]||new Set()).add(a)};
+ let pr=(D.Acoplamientos||[]).filter(a=>a.tracto&&a.trailer&&!a.fin).map(a=>[a.tracto,a.trailer]);
+ if(!pr.length){try{pr=Object.keys(SEED.eng||{}).map(k=>k.split('-'))}catch(e){pr=[]}}
+ pr.forEach(p=>{if(p[0]&&p[1])add(p[0],p[1])});return mp}
+function execs(){const out=[];
+ (D.Ordenes||[]).filter(o=>o.estado==='Cerrada'&&o.equipo).forEach(o=>{const f=d10(o.fecha_cierre)||d10(o.fecha);if(!OKD.test(f))return;
+  out.push({src:'OT',key:'OT:'+o.id,id:o.id,eq:o.equipo,f,text:norm([o.actividades,o.diagnostico,o.componente,o.resultado].join(' ')),r:+o.costo_repuestos||0,m:(+o.costo_mano_obra||0)+(+o.costo_externo||0)})});
+ let S=[];try{S=allSvc()}catch(e){S=D.Servicios||[]}
+ S.forEach(s=>{const f=d10(s.fecha);if(!OKD.test(f)||!s.equipo)return;const inf=svcInfo(s);
+  out.push({src:'SV',key:'SV:'+(s.id||s.equipo+f+s.tipo),id:s.id||'',eq:s.equipo,f,text:norm(s.tipo),tipo:s.tipo||'',aire:s.f_aire==='Si',r:inf.r,m:inf.m})});
+ return out}
+function matcher(p){const a=norm(p.actividad),k=KIND(p.actividad);
+ if(k==='engrase')return e=>e.src==='OT'&&/engrase/.test(e.text);
+ if(k==='valvulina'){const part=/caja|transmision/.test(a)?'caja':/delantero/.test(a)?'delantero':/trasero/.test(a)?'trasero':'';return e=>/valvulina/.test(e.text)&&(!part||e.text.includes(part)||!/caja|transmision|delantero|trasero/.test(e.text))}
+ if(k==='aire')return e=>e.src==='SV'?e.aire:/filtro (de )?aire/.test(e.text);
+ if(k==='aceite')return e=>e.src==='SV'?/cambio de aceite/.test(e.text):/cambio de aceite|aceite y filtros|aceite de motor/.test(e.text);
+ const tk=[...new Set(a.replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>=5&&!STOP.has(w)))];
+ return e=>{if(e.src!=='OT')return false;if(e.text.includes(a))return true;if(!tk.length)return false;const h=tk.filter(w=>e.text.includes(w)).length;return h>=Math.min(2,tk.length)&&h>=Math.ceil(tk.length*.6)}}
+function planRows(){const out=[],seen=new Set();
+ (D.Plan||[]).filter(p=>p.equipo&&p.actividad&&+p.intervalo>0&&p.estado!=='Inactivo').forEach(p=>{const k=p.equipo+'|'+norm(p.actividad);if(seen.has(k))return;seen.add(k);out.push(p)});
+ const pm=pairsMap();Object.keys(pm).forEach(eq=>{if(!out.some(p=>p.equipo===eq&&KIND(p.actividad)==='engrase'))out.push({equipo:eq,sistema:'Sistema de lubricación',actividad:'Engrase general',unidad:'dias',intervalo:15,estado:'Activo',_v:1})});
+ return out}
+const rateOf=eq=>{const E=estEq(eq),av=avgUse((E&&E.via)||eq);return{km:av&&av.km>0?av.km:null,h:av&&av.h>0?av.h:null}};
+function planAnual(Y){const t=today(),cy=+t.slice(0,4),y0=Y+'-01-01',y1=Y+'-12-31',KPD=+window.ppK||300,HPD=+window.ppH||8;
+ const EX=execs(),pm=pairsMap();let G=null;const gen=()=>G||(G=(window.ppGen?window.ppGen():{occ:[]}));
+ const series=[];
+ planRows().forEach(p=>{const eq=p.equipo,n=+p.intervalo,u=p.unidad,k=KIND(p.actividad),mt=matcher(p);
+  let cand=EX.filter(e=>(e.eq===eq||(k==='engrase'&&pm[eq]&&pm[eq].has(e.eq)))&&mt(e));
+  const ul=d10(p.ultima_fecha);if(OKD.test(ul)&&!cand.some(e=>Math.abs(daysBetween(e.f,ul))<=1))cand.push({src:'PL',key:'PL:'+p.id,id:'',eq,f:ul,text:'',r:0,m:0});
+  const byD=new Map();cand.forEach(e=>{const c=byD.get(e.f);if(c)c.items.push(e);else byD.set(e.f,{f:e.f,items:[e]})});
+  cand=[...byD.values()].sort((a,b)=>a.f.localeCompare(b.f));
+  let step,basis,fixed=false;
+  if(u==='dias'){step=Math.max(1,n);fixed=n===15;basis='Cada '+n+' días'+(fixed?' (días 1 y 16 de cada mes: 24 al año)':'')}
+  else{const rt=rateOf(eq),r=u==='horas'?(rt.h||HPD):(rt.km||KPD),med=u==='horas'?!!rt.h:!!rt.km;step=Math.max(1,Math.round(n/r));basis='Cada '+fmt(n)+' '+u+' ÷ '+Math.round(r)+' '+u+'/día ≈ cada '+step+' días ('+(med?'ritmo medido con Satrack':'ritmo supuesto')+')'}
+  const tol=Math.min(45,Math.max(7,Math.floor(step/2))),occ=[],used=new Set();
+  if(fixed){for(let m=1;m<=12;m++)['01','16'].forEach(dy=>occ.push({d:Y+'-'+pad(m)+'-'+dy}));
+   occ.forEach(o=>{let b=null;cand.forEach((e,i)=>{if(used.has(i))return;const dd=Math.abs(daysBetween(e.f,o.d));if(dd<=tol&&(b==null||dd<b.dd))b={i,dd}});if(b){used.add(b.i);o.ex=cand[b.i]}})}
+  else{const bef=cand.filter(e=>e.f<y0);let cur=bef.length?bef[bef.length-1].f:null;
+   if(cur!=null&&daysBetween(cur,y0)>730)cur=addDays(cur,Math.floor(daysBetween(cur,y0)/step)*step);
+   if(cur==null){const iy=cand.findIndex(e=>e.f>=y0&&e.f<=y1);
+    if(iy>=0){used.add(iy);occ.push({d:cand[iy].f,ex:cand[iy],first:true});cur=cand[iy].f}
+    else if(Y>=cy){gen().occ.filter(o=>o.eq===eq&&o.act===p.actividad&&o.f>=y0&&o.f<=y1).forEach(o=>occ.push({d:o.f,flag:o.flag}))}}
+   if(cur!=null){let g=0;while(g++<2500){const due=addDays(cur,step);if(due>y1)break;let b=null;
+     cand.forEach((e,i)=>{if(used.has(i)||e.f<=cur)return;if(e.f<addDays(due,-tol)||e.f>addDays(due,tol))return;const dd=Math.abs(daysBetween(e.f,due));if(b==null||dd<b.dd)b={i,dd}});
+     const o={d:due};let miss=false;
+     if(b){used.add(b.i);o.ex=cand[b.i];cur=o.ex.f}else{miss=addDays(due,tol)<t;cur=due;if(miss&&u!=='dias'){cur=addDays(t,-step)>due?addDays(t,-step):due}}
+     if(due>=y0)occ.push(o)}}}
+  occ.forEach(o=>{o.st=o.ex?'ok':addDays(o.d,tol)<t?'miss':o.d<=t?'pend':'fut'});
+  const extras=cand.filter((e,i)=>!used.has(i)&&e.f>=y0&&e.f<=y1&&e.f<=t);
+  series.push({eq,placa:plc(eq),act:p.actividad,sis:p.sistema||'',kind:k,unit:u,n,step,tol,basis,occ,extras,pv:p.estado==='Pendiente validacion',virt:!!p._v,planId:p.id})});
+ const order=eqs().map(e=>e.codigo);series.sort((a,b)=>{const ia=order.indexOf(a.eq),ib=order.indexOf(b.eq);return(ia<0?999:ia)-(ib<0?999:ib)||a.act.localeCompare(b.act)});
+ return{Y,series}}
+window.igcPlanAnual=planAnual;
+const sStat=s=>{const o=s.occ,ok=o.filter(x=>x.st==='ok').length,miss=o.filter(x=>x.st==='miss').length,pend=o.filter(x=>x.st==='pend').length;return{n:o.length,ok,miss,pend,pc:ok+miss?Math.round(ok/(ok+miss)*100):null}};
+const pcTxt=v=>v==null?'—':v+'%';
+
+/* ---- Plan anual: tareas × vehículos, planeado vs ejecutado automático ---- */
+function cellInfo(s,mo){const o=s.occ.filter(x=>+x.d.slice(5,7)===mo+1),p=o.length,e=o.filter(x=>x.st==='ok').length,ms=o.filter(x=>x.st==='miss').length,pd=o.filter(x=>x.st==='pend').length;
+ if(!p)return{c:'c-no',t:s.extras.some(x=>+x.f.slice(5,7)===mo+1)?'+'+s.extras.filter(x=>+x.f.slice(5,7)===mo+1).length:'·'};
+ return{c:e===p?'c-ok':ms?(e?'c-part':'c-miss'):pd?'c-pend':e?'c-ok':'c-fut',t:e+'/'+p}}
+function matrixHtml(S,Y,idx){const by=new Map();S.forEach(s=>{(by.get(s.eq)||by.set(s.eq,[]).get(s.eq)).push(s)});
+ let h='<div class=tw><table class=pa><tr><th class=l>Tarea<th>Cada'+MES.map(x=>'<th>'+x).join('')+'<th>Prog.<th>Ejec.<th>Cumpl.</tr>';
+ by.forEach((L,eq)=>{const q=eqs().find(x=>x.codigo===eq)||{},T2=L.reduce((a,s)=>{const z=sStat(s);a.n+=z.n;a.ok+=z.ok;a.miss+=z.miss;return a},{n:0,ok:0,miss:0});
+  h+='<tr class=pg><td colspan=17>'+eqTxt(eq)+' <small style="font-weight:400">'+esc([q.marca,q.linea||q.modelo].filter(Boolean).join(' '))+' · '+T2.ok+' de '+T2.n+' ejecutadas · cumplimiento '+pcTxt(T2.ok+T2.miss?Math.round(T2.ok/(T2.ok+T2.miss)*100):null)+'</small></tr>';
+  L.forEach(s=>{const z=sStat(s),i=idx.get(s);h+='<tr><td class=l title="'+esc(s.basis)+'">'+esc(s.act)+(s.pv?' <small>(por validar)</small>':'')+'<td><small>'+(s.unit==='dias'?s.n+' d':fmt(s.n)+' '+s.unit)+'</small>'+MES.map((_,mo)=>{const c=cellInfo(s,mo);return'<td class="cc '+c.c+'" data-s="'+i+'" data-m="'+mo+'">'+c.t}).join('')+'<td>'+z.n+'<td>'+z.ok+'<td><b>'+pcTxt(z.pc)+'</b></tr>'})});
+ return h+'</table></div>'}
+function cellDialog(s,mo,Y,after){const d=$('#dlg'),t=today(),can=canW();d.className='';
+ const oc=s.occ.filter(o=>+o.d.slice(5,7)===mo+1),ex=s.extras.filter(e=>+e.f.slice(5,7)===mo+1),
+ ST={ok:'<span class="b g">Ejecutada</span>',miss:'<span class="b r">No ejecutada</span>',pend:'<span class="b y">Por ejecutar (en plazo)</span>',fut:'<span class="b">Programada</span>'},
+ reg=e=>e.items.map(i=>i.src==='OT'?'<a class=lk data-ot="'+esc(i.id)+'">OT '+esc(i.id)+'</a>':i.src==='SV'?'Servicio de lubricación'+(i.tipo?' · '+esc(i.tipo):''):'Registro en el plan').join('<br>');
+ d.innerHTML='<h3>'+esc(s.act)+' · '+eqTxt(s.eq)+' · '+MESES[mo]+' '+Y+'</h3><p class=lgd>'+esc(s.basis)+'. Tolerancia: ±'+s.tol+' días alrededor de la fecha programada.</p>'+
+ (oc.length?TB(['Fecha programada','Estado','Ejecutado el','Registro (OT / servicio)','Repuestos','Mano de obra',''],oc.map((o,i)=>[fmtD(o.d),ST[o.st],o.ex?fmtD(o.ex.f):'—',o.ex?reg(o.ex):'—',o.ex?mny(o.ex.items.reduce((a,x)=>a+x.r,0)):'—',o.ex?mny(o.ex.items.reduce((a,x)=>a+x.m,0)):'—',!o.ex&&can?'<button class=s data-mk="'+i+'">＋ Crear OT</button>':''])):'<p>Sin actividades programadas este mes.</p>')+
+ (ex.length?'<h4>Ejecutadas fuera de las fechas programadas</h4>'+TB(['Fecha','Registro'],ex.map(e=>[fmtD(e.f),reg(e)])):'')+
+ '<div class=bar style="margin-top:10px"><button class=s id=pd_x>Cerrar</button></div>';
+ d.showModal();$('#pd_x').onclick=()=>d.close();
+ d.onclick=e=>{const a=e.target.closest('[data-ot]'),b=e.target.closest('[data-mk]');
+  if(a){const o=(D.Ordenes||[]).find(x=>x.id===a.dataset.ot);if(o){d.close();edit('Ordenes',o,can)}}
+  if(b){const o=oc[+b.dataset.mk],E=estEq(s.eq);d.close();RLOCK();edit('Ordenes',null,true,{equipo:s.eq,componente:s.sis,fecha:o.d<t?t:o.d,km:E&&E.km!=null?Math.round(E.km):'',estado:'Programada',novedad_id:'Plan preventivo',actividades:s.act+' [Preventivo]'})}}}
+window.ppView=async function(m){await Promise.all(['Tractocamiones','Traileres','Plan','Uso','Ordenes','Acoplamientos','Servicios'].map(load));
+ const cy=+today().slice(0,4),W=window.ppw2=window.ppw2||{y:cy,e:'',a:''},P=planAnual(W.y),eqL=[...new Set(P.series.map(s=>s.eq))],acts=[...new Set(P.series.map(s=>s.act))].sort();
+ if(W.e&&!eqL.includes(W.e))W.e='';if(W.a&&!acts.includes(W.a))W.a='';
+ const S=P.series.filter(s=>(!W.e||s.eq===W.e)&&(!W.a||s.act===W.a)),idx=new Map(S.map((s,i)=>[s,i]));
+ const tot=S.reduce((a,s)=>{const z=sStat(s);a.n+=z.n;a.ok+=z.ok;a.miss+=z.miss;a.pend+=z.pend;return a},{n:0,ok:0,miss:0,pend:0});
+ const seen=new Set();let cr=0,cm=0;S.forEach(s=>{[...s.occ.filter(o=>o.ex).map(o=>o.ex),...s.extras].forEach(e=>e.items.forEach(i=>{if(seen.has(i.key))return;seen.add(i.key);cr+=i.r;cm+=i.m}))});
+ m.innerHTML='<h3>Plan de mantenimiento preventivo anual · por tarea y por vehículo</h3>'+
+ '<div class=wn style="background:#eef6fb;border-color:#002e42"><b>Cómo funciona (sincronizado):</b> ① cada tarea del plan (engrase, aceite, filtros, valvulinas, llantas…) tiene su intervalo por vehículo; ② el plan calcula las fechas del año (engrase: días 1 y 16; km u horas se convierten a días con el uso Satrack); ③ lo <b>ejecutado se marca solo</b> cuando existe una <b>orden de trabajo cerrada</b> con esa actividad (o un servicio de aceite / valvulina registrado) para ese vehículo en la fecha programada ±la tolerancia. Los mismos datos alimentan los controles de <b>Engrase</b>, <b>Aceite, filtros y valvulina</b> y el <b>Calendario</b>.</div>'+
+ '<div class=cards><div class=card><b>'+tot.n+'</b>Actividades programadas '+W.y+'</div><div class="card g"><b>'+tot.ok+'</b>Ejecutadas (OT / servicios)</div><div class="card r"><b>'+tot.miss+'</b>No ejecutadas (vencidas)</div><div class="card y"><b>'+tot.pend+'</b>En plazo por ejecutar</div><div class=card><b>'+pcTxt(tot.ok+tot.miss?Math.round(tot.ok/(tot.ok+tot.miss)*100):null)+'</b>Cumplimiento a hoy</div><div class=card><b>'+mny(cr)+'</b>Repuestos ejecutados</div><div class=card><b>'+mny(cm)+'</b>Mano de obra ejecutada</div></div>'+
+ '<div class=bar>Año <select id=ppy>'+[cy-1,cy,cy+1].map(y=>'<option '+(y===W.y?'selected':'')+'>'+y+'</option>').join('')+'</select><select id=ppe><option value="">Todos los vehículos</option>'+eqL.map(c=>'<option value="'+esc(c)+'" '+(c===W.e?'selected':'')+'>'+esc(eqLbl(c))+'</option>').join('')+'</select><select id=ppa><option value="">Todas las tareas</option>'+acts.map(a=>'<option '+(a===W.a?'selected':'')+'>'+esc(a)+'</option>').join('')+'</select><button id=ppc>📅 Ver en el calendario</button><button class=s id=ppx>Exportar CSV</button></div>'+
+ '<div class=pal><span><i style="background:#d9f2db"></i>Ejecutada</span><span><i style="background:#ffe0b2"></i>Parcial</span><span><i style="background:#fdd"></i>No ejecutada</span><span><i style="background:#fff0c2"></i>En plazo</span><span><i style="background:#e3f0fb"></i>Programada (futuro)</span><span>Cada celda = ejecutadas/programadas del mes · clic para ver el detalle y las OT · «+n» = ejecutadas fuera de fecha</span></div>'+
+ (S.length?matrixHtml(S,W.y,idx):'<p>No hay tareas en el plan con estos filtros. Cárguelas en «Programas y protocolos → Plan por placa».</p>')+
+ '<details><summary><b>Reglas del plan: de dónde sale cada fecha y cómo se detecta lo ejecutado</b></summary>'+TB(['Vehículo','Tarea','Cómo se calcula','Se marca ejecutada con'],S.map(s=>[eqTxt(s.eq),esc(s.act),esc(s.basis),{engrase:'OT cerrada con «engrase» (del tracto o su tráiler)',aceite:'Servicio de aceite registrado u OT cerrada de cambio de aceite',valvulina:'Servicio de valvulina u OT cerrada de valvulina',aire:'Servicio con filtro de aire cambiado u OT cerrada de filtro de aire',otro:'OT cerrada cuyo texto coincide con la actividad'}[s.kind]]))+'</details>'+
+ '<p><small>Las fechas de meses pasados se reconstruyen con el ciclo del protocolo a partir del último servicio registrado; si un vehículo no tiene ningún registro, solo se programa hacia adelante. Los ítems «por validar» se muestran para planear, pero confirme su intervalo en Plan por placa.</small></p>';
+ $('#ppy').onchange=e=>{W.y=+e.target.value;ppView(m)};$('#ppe').onchange=e=>{W.e=e.target.value;ppView(m)};$('#ppa').onchange=e=>{W.a=e.target.value;ppView(m)};
+ $('#ppc').onclick=()=>{CALS.tp.plan=1;CALS.tp.ejec=1;CALS.v='mes';CALS.y=W.y;CALS.mo=W.y===cy?+today().slice(5,7)-1:0;CALS.eq=W.e;go('cal')};
+ $('#ppx').onclick=()=>csv('plan_anual_'+W.y,['vehiculo','placa','tarea','programada','estado','ejecutada','registro'],S.flatMap(s=>s.occ.map(o=>({vehiculo:s.eq,placa:s.placa,tarea:s.act,programada:o.d,estado:{ok:'Ejecutada',miss:'No ejecutada',pend:'En plazo',fut:'Programada'}[o.st],ejecutada:o.ex?o.ex.f:'',registro:o.ex?o.ex.items.map(i=>i.id||i.src).join(' ; '):''}))));
+ m.onclick=e=>{const c=e.target.closest('.cc');if(c)cellDialog(S[+c.dataset.s],+c.dataset.m,W.y,()=>ppView(m))}};
+
+/* ---- Calendario: plan + ejecutado, sincronizados ---- */
+CTIPO.ejec=['✅','Ejecutado (OT y servicios)'];CALS.tp.ejec=1;
+const _ce2=window.calEv;
+window.calEv=function(){const r=_ce2.apply(this,arguments);
+ try{const t=today(),cy=+t.slice(0,4),keep=r.E.filter(e=>e.tp!=='plan'),add=[];
+  for(const Y of [cy-1,cy,cy+1]){planAnual(Y).series.forEach(s=>{
+   s.occ.forEach(o=>{
+    if(o.ex){const it=o.ex.items.find(i=>i.src==='OT');add.push({f:o.ex.f,tp:'ejec',eq:s.eq,tit:s.act+' · '+s.placa+(it?' ('+it.id+')':''),det:'Ejecutado'+(o.ex.f!==o.d?' (programado para el '+fmtD(o.d)+')':'')+' · '+o.ex.items.map(i=>i.src==='OT'?'OT '+i.id:i.src==='SV'?'servicio de lubricación':'registro del plan').join(', '),lv:4});return}
+    if(keep.some(e=>e.tp!=='ejec'&&e.eq&&String(e.eq).includes(s.eq)&&(e.tit===s.act||(/engrase/i.test(e.tit)&&s.kind==='engrase'))&&Math.abs(daysBetween(e.f,o.d))<=3))return;
+    add.push({f:o.d,tp:'plan',eq:s.eq,tit:s.act+' · '+s.placa,det:s.basis+(o.st==='miss'?' · NO EJECUTADA':o.st==='pend'?' · en plazo de ejecución':''),lv:o.st==='miss'?1:o.st==='pend'?3:4})});
+   s.extras.forEach(e=>{const it=e.items.find(i=>i.src==='OT');add.push({f:e.f,tp:'ejec',eq:s.eq,tit:s.act+' · '+s.placa+(it?' ('+it.id+')':''),det:'Ejecutado fuera de las fechas del plan',lv:4})})})}
+  const sg=new Set();r.E=keep.concat(add.filter(e=>{const k=e.f+'|'+e.eq+'|'+e.tit+'|'+e.tp;if(sg.has(k))return false;sg.add(k);return true}))}catch(e){console.error(e)}
+ return r};
+
+/* ================= ENGRASE: control alineado con el plan anual + facturas ================= */
+function engDialog(again){const d=$('#dlg'),tr=(D.Tractocamiones||[]).map(t=>t.codigo),pm=pairsMap();d.className='';
+ if(!tr.length)return msg('Primero registre los tractocamiones',1);
+ d.innerHTML='<h3>🛢️ Registrar engrase</h3><div class=fg><div><label>Tractocamión (se engrasa con su tráiler)</label>'+optSel('en_e',tr,tr[0])+'</div><div><label>Fecha del engrase</label><input id=en_f type=date value="'+today()+'" max="'+today()+'"></div><div><label>Responsable</label><input id=en_r list=dl_prov autocomplete=off></div><div><label>Tráiler acoplado</label><input id=en_t readonly></div><div class=w><label>Observaciones</label><textarea id=en_o rows=2></textarea></div></div><div class=bar style="margin-top:10px"><button id=en_ok>Guardar engrase</button><button class=s id=en_x>Cancelar</button></div><small>Queda como orden de trabajo cerrada: cuenta como ejecutado en el plan anual, en el calendario y en el balance de costos.</small>';
+ const W=costBlock(d,d.querySelector('.bar'),{});
+ const pre=()=>{const p=pm[$('#en_e').value];$('#en_t').value=p?[...p].join(' + '):'—'};$('#en_e').onchange=pre;pre();
+ d.showModal();$('#en_x').onclick=()=>d.close();
+ $('#en_ok').onclick=async()=>{const eq=$('#en_e').value,f=$('#en_f').value;if(!f)return msg('Indique la fecha',1);if(f>today())return msg('La fecha no puede ser futura',1);
+  const G=gather(d,W);if(G.err)return msg(G.err,1);RLOCK();const E=estEq(eq),p=pm[eq],trl=p?[...p].join(' + '):'';
+  const x={equipo:eq,componente:'Sistema de lubricación',novedad_id:'Plan preventivo',fecha:f,fecha_inicio:f,fecha_cierre:f,km:E&&E.km!=null?Math.round(E.km):'',prioridad:'P4',estado:'Cerrada',responsable:$('#en_r').value.trim(),actividades:'Engrase general '+eq+(trl?' + '+trl:'')+' [Preventivo · engrase quincenal]',resultado:$('#en_o').value.trim(),costo_repuestos:G.r||'',costo_mano_obra:G.m||'',factura_repuestos:W.WR.get(),factura_mantenimiento:W.WM.get(),repuestos:FT().ser('',G.B)};
+  const er=window.otVal?window.otVal(x):'';if(er)return msg(er,1);
+  try{await call('save','Ordenes',x);d.close();msg('Engrase registrado');await load('Ordenes');again&&again()}catch(z){msg('Error: '+(z&&z.message||z),1)}}}
+window.engTab=async function(b,again){await Promise.all(['Ordenes','Acoplamientos','Tractocamiones','Traileres','Plan','Servicios','Uso'].map(load));RLOCK();
+ const cy=+today().slice(0,4),Y=window.engY=window.engY||cy,t=today(),can=canW(),P=planAnual(Y),pm=pairsMap();
+ const trs=(D.Tractocamiones||[]).map(x=>x.codigo).filter(c=>P.series.some(s=>s.eq===c&&s.kind==='engrase'&&/engrase/i.test(s.act)));
+ const rows=trs.flatMap(c=>{const s=P.series.find(x=>x.eq===c&&x.kind==='engrase'&&/engrase/i.test(x.act)),pr=pm[c]?[...pm[c]].join(' – '):'',z=sStat(s);
+  const prog=MES.map((_,mo)=>s.occ.filter(o=>+o.d.slice(5,7)===mo+1).length),ej=MES.map((_,mo)=>s.occ.filter(o=>+o.d.slice(5,7)===mo+1&&o.st==='ok').length),ex=MES.map((_,mo)=>s.extras.filter(e=>+e.f.slice(5,7)===mo+1).length);
+  return[[eqTxt(c)+(pr?' – '+esc(pr):''),'Programado',...prog,z.n],['','Ejecutado',...ej.map((v,mo)=>ex[mo]?v+' <small>(+'+ex[mo]+')</small>':v),z.ok],['','Cumplimiento',...MES.map((_,mo)=>{const cc=cellInfo(s,mo);return'<span class="'+cc.c+'" style="padding:1px 5px;border-radius:4px">'+(prog[mo]?Math.round(ej[mo]/prog[mo]*100)+'%':'—')+'</span>'}),pcTxt(z.pc)]]});
+ const O=(D.Ordenes||[]).filter(o=>o.estado==='Cerrada'&&/engrase/i.test([o.actividades,o.diagnostico,o.novedad_id].join(' '))&&d10(o.fecha_cierre||o.fecha).slice(0,4)===String(Y)).sort((a,c)=>d10(c.fecha_cierre||c.fecha).localeCompare(d10(a.fecha_cierre||a.fecha)));
+ const cs=O.map(o=>{const B=FT().parseRep(o.repuestos).B;return{o,B,r:+o.costo_repuestos||0,m:(+o.costo_mano_obra||0)+(+o.costo_externo||0)}});
+ b.innerHTML='<div class=bar>Año a revisar: <select id=eny>'+[cy-1,cy,cy+1].map(y=>'<option '+(y===Y?'selected':'')+'>'+y+'</option>').join('')+'</select>'+(can?'<button id=enn>＋ Registrar engrase (con factura)</button>':'')+'<button class=s id=enp>🗓️ Ver en el plan anual</button><button class=s id=enc>📅 Ver en el calendario</button></div>'+
+ '<div class=wn style="background:#eef6fb;border-color:#002e42"><b>Protocolo de engrase (vigente todos los años):</b> se engrasa el tractocamión y su tráiler <b>cada 15 días: 2 veces al mes</b> (días 1 y 16) = <b>24 engrases al año por conjunto</b>. Este control está <b>sincronizado con el Plan preventivo anual y el Calendario</b>: lo ejecutado sale de las órdenes de trabajo cerradas con engrase (tolerancia ±7 días). Para registrar uno nuevo con su factura electrónica use «＋ Registrar engrase».</div>'+
+ TB(['Tracto – Tráiler','',...MES,'Total'],rows)+
+ '<h4>Engrases registrados en '+Y+' · costos y facturas</h4>'+TB(['Fecha','Equipo','Actividad','Repuestos','Mano de obra','Facturas',''],cs.map(c=>[fmtD(d10(c.o.fecha_cierre||c.o.fecha)),eqTxt(c.o.equipo),esc(String(c.o.actividades||'').slice(0,70)),c.r?mny(c.r):'—',c.m?mny(c.m):'—',c.B.length?'🧾 '+esc(c.B.map(x=>x.n).join(', ').slice(0,50)):'<small>'+esc([c.o.factura_repuestos,c.o.factura_mantenimiento].filter(Boolean).join(' ; ')||'—')+'</small>','<button class=s data-ot="'+esc(c.o.id)+'">'+(can?'Abrir / agregar factura':'Ver')+'</button>']))+
+ '<p><b>Total '+Y+':</b> repuestos '+mny(cs.reduce((a,c)=>a+c.r,0))+' · mano de obra '+mny(cs.reduce((a,c)=>a+c.m,0))+'</p><p>'+esc(SEED.engnota||'')+'</p>'+
+ '<details><summary>Referencia: control anterior importado de las hojas de vida</summary>'+TB(['Tracto – Tráiler','',...MES,'Total'],Object.entries(SEED.eng).flatMap(([k,v])=>[[esc(k),'Programado',...v.prog,v.prog.reduce((a,c)=>a+c,0)],['','Ejecutado',...v.ejec,v.ejec.reduce((a,c)=>a+c,0)]]))+'</details>';
+ $('#eny').onchange=e=>{window.engY=+e.target.value;again()};
+ if($('#enn'))$('#enn').onclick=()=>engDialog(again);
+ $('#enp').onclick=()=>{window.ppw2=Object.assign(window.ppw2||{},{y:Y,e:'',a:'Engrase general'});go('ppl')};
+ $('#enc').onclick=()=>{CALS.tp.plan=1;CALS.tp.ejec=1;CALS.v='mes';CALS.y=Y;CALS.mo=Y===cy?+t.slice(5,7)-1:0;CALS.eq='';go('cal')};
+ b.onclick=e=>{const a=e.target.closest('[data-ot]');if(!a)return;const o=(D.Ordenes||[]).find(x=>x.id===a.dataset.ot);if(o)edit('Ordenes',o,can)}};
+
+/* ================= ACEITE, FILTROS Y VALVULINA: franja del plan anual ================= */
+const _lub=window.lub;
+window.lub=async function(m){await _lub.apply(this,arguments);
+ try{await Promise.all(['Plan','Ordenes','Acoplamientos'].map(load));const Y=+today().slice(0,4),P=planAnual(Y),S=P.series.filter(s=>['aceite','valvulina','aire'].includes(s.kind)&&(D.Tractocamiones||[]).some(x=>x.codigo===s.eq)),bar=m.querySelector('.bar');if(!bar||!S.length)return;
+  const box=document.createElement('div');
+  box.innerHTML='<details open><summary><b>🗓️ Plan anual '+Y+' · aceite, filtros y valvulina (sincronizado con órdenes, servicios y calendario)</b></summary>'+TB(['Vehículo','Tarea','Cada','Programadas','Ejecutadas','No ejecutadas','Próxima programada','Cumplimiento'],S.map(s=>{const z=sStat(s),nx=s.occ.find(o=>o.st==='pend'||o.st==='fut');return[eqTxt(s.eq),esc(s.act),'<small>'+(s.unit==='dias'?s.n+' d':fmt(s.n)+' '+s.unit)+'</small>',z.n,z.ok,z.miss?'<span class="b r">'+z.miss+'</span>':0,nx?fmtD(nx.d):'—',pcTxt(z.pc)]}))+'<div class=bar><button class=s id=lpa>🗓️ Abrir el plan anual</button><button class=s id=lpc>📅 Ver en el calendario</button></div><small>Registre cada cambio con «Registrar cambio de aceite y filtros» y cargue allí el ZIP de la factura: el plan lo marca como ejecutado y el costo pasa al balance.</small></details>';
+  bar.insertAdjacentElement('afterend',box);
+  box.querySelector('#lpa').onclick=()=>{window.ppw2=Object.assign(window.ppw2||{},{y:Y,e:'',a:''});go('ppl')};
+  box.querySelector('#lpc').onclick=()=>{CALS.tp.plan=1;CALS.tp.ejec=1;CALS.v='mes';CALS.y=Y;CALS.mo=+today().slice(5,7)-1;CALS.eq='';go('cal')}}catch(e){console.error(e)}};
+
+/* ================= COSTOS E INDICADORES: balance por vehículo (repuestos vs mano de obra) ================= */
+function balRecs(){const cods=new Set(eqs().map(e=>e.codigo)),NV=new Map((D.Novedades||[]).map(n=>[n.id,n])),sp=(window.cst||{}).sp,out=[];
+ const cl=o=>{const n=NV.get(o.novedad_id),oe=o.equipo||'',base=cods.has(oe)?[oe]:[];if(!n)return base;let a='';try{a=afectaDe(n)}catch(e){}
+  const tr=cods.has(n.tracto)?n.tracto:'',vo=cods.has(n.trailer)?n.trailer:'';let q=a==='Ambos'?[tr,vo]:a==='Tráiler (volco)'?[vo||tr]:[tr||vo];q=q.filter(Boolean);return q.length?q:base};
+ const push=(src,id,f,q,rp,mo,ex,desc,fac)=>{const keys=!q.length?['__sin']:q.length>1&&!sp?['__sh:'+q.join(' + ')]:q,sh=q.length>1&&sp?q.length:1;keys.forEach(k=>out.push({src,id,f,k,rp:rp/sh,mo:mo/sh,ex:ex/sh,desc,fac}))};
+ (D.Ordenes||[]).forEach(o=>{const rp=+o.costo_repuestos||0,mo=+o.costo_mano_obra||0,ex=+o.costo_externo||0;if(!(rp||mo||ex))return;
+  const B=FT()?FT().parseRep(o.repuestos).B:[];push('OT',o.id,d10(o.fecha_cierre)||d10(o.fecha),cl(o),rp,mo,ex,String(o.actividades||o.componente||'').slice(0,80),B.length?facTxt(B):[o.factura_repuestos,o.factura_mantenimiento].filter(Boolean).join(' ; '))});
+ (D.Servicios||[]).forEach(s=>{const i=svcInfo(s);if(!(i.r||i.m))return;push('Servicio',s.id,d10(s.fecha),cods.has(s.equipo)?[s.equipo]:[],i.r,i.m,0,s.tipo||'Servicio de lubricación',facTxt(i.B))});
+ return out}
+const keyLbl=k=>k==='__sin'?'Sin equipo':k.indexOf('__sh:')===0?'Compartido: '+esc(k.slice(5)):eqTxt(k);
+async function balance(m){await Promise.all(['Tractocamiones','Traileres','Ordenes','Novedades','Servicios'].map(load));
+ const h=m.querySelector('h3');if(!h)return;let host=m.querySelector('#balw');if(!host){host=document.createElement('div');host.id='balw';h.insertAdjacentElement('afterend',host)}
+ const W=window.balW=window.balW||{y:'',mo:'',k:'',ot:1,sv:1,ex:1},all=balRecs(),yrs=[...new Set(all.map(r=>r.f.slice(0,4)).filter(Boolean))].sort();
+ const draw=()=>{const R=all.filter(r=>(r.src==='OT'?W.ot:W.sv)&&(!W.y||r.f.slice(0,4)===W.y)&&(!W.mo||r.f.slice(5,7)===W.mo)),by=new Map();
+  R.forEach(r=>{const a=by.get(r.k)||by.set(r.k,{rp:0,mo:0,n:0}).get(r.k);a.rp+=r.rp;a.mo+=r.mo+(W.ex?r.ex:0);a.n++});
+  const L=[...by.entries()].sort((a,b)=>(b[1].rp+b[1].mo)-(a[1].rp+a[1].mo)),T0=L.reduce((a,[,x])=>({rp:a.rp+x.rp,mo:a.mo+x.mo,n:a.n+x.n}),{rp:0,mo:0,n:0}),G=T0.rp+T0.mo,mx=Math.max(1,...L.map(([,x])=>x.rp+x.mo)),pc=(v,t)=>t?Math.round(v/t*100)+'%':'—';
+  const chart=L.length?'<div style="overflow-x:auto"><svg viewBox="0 0 700 '+(L.length*26+10)+'" style="width:100%;min-width:560px">'+L.map(([k,x],i)=>{const y=i*26+4,w1=x.rp/mx*430,w2=x.mo/mx*430,lb=k==='__sin'?'Sin equipo':k.indexOf('__sh:')===0?'Compartido':k+(plc(k)!==k?' · '+plc(k):'');return'<text x="0" y="'+(y+14)+'" font-size="12" fill="#1c2530">'+esc(lb.slice(0,22))+'</text><rect x="150" y="'+y+'" width="'+w1+'" height="18" fill="#ce8813"><title>Repuestos '+mny(x.rp)+'</title></rect><rect x="'+(150+w1)+'" y="'+y+'" width="'+w2+'" height="18" fill="#002e42"><title>Mano de obra '+mny(x.mo)+'</title></rect><text x="'+(156+w1+w2)+'" y="'+(y+14)+'" font-size="11" fill="#4a5560">'+mny(x.rp+x.mo)+'</text>'}).join('')+'</svg></div><div class=pal><span><i style="background:#ce8813"></i>Repuestos</span><span><i style="background:#002e42"></i>Mano de obra'+(W.ex?' (incluye taller externo)':'')+'</span></div>':'';
+  let det='';if(W.k&&by.has(W.k)){const D1=R.filter(r=>r.k===W.k).sort((a,b)=>b.f.localeCompare(a.f)),mm={};D1.forEach(r=>{const k=r.f.slice(0,7);(mm[k]=mm[k]||{rp:0,mo:0});mm[k].rp+=r.rp;mm[k].mo+=r.mo+(W.ex?r.ex:0)});
+   det='<h4>Detalle de '+keyLbl(W.k)+'</h4>'+TB(['Mes','Repuestos','Mano de obra','Total'],Object.keys(mm).sort().reverse().map(k=>[k,mny(mm[k].rp),mny(mm[k].mo),mny(mm[k].rp+mm[k].mo)]))+TB(['Fecha','Origen','Registro','Descripción','Facturas','Repuestos','Mano de obra',''],D1.map(r=>[fmtD(r.f),r.src,esc(r.id||''),esc(r.desc),'<small>'+esc(r.fac||'—')+'</small>',mny(r.rp),mny(r.mo+(W.ex?r.ex:0)),r.src==='OT'?'<button class=s data-ot="'+esc(r.id)+'">Abrir</button>':'']))}
+  host.innerHTML='<div style="border:2px solid var(--a);border-radius:12px;padding:10px;margin:8px 0 14px"><h3 style="margin-top:0">📊 Balance por vehículo: repuestos y mano de obra</h3>'+
+  '<div class=bar><select id=bly><option value="">Todos los años</option>'+yrs.map(y=>'<option '+(y===W.y?'selected':'')+'>'+y+'</option>').join('')+'</select><select id=blm><option value="">Todos los meses</option>'+MESES.map((x,i)=>'<option value="'+pad(i+1)+'" '+(pad(i+1)===W.mo?'selected':'')+'>'+x+'</option>').join('')+'</select>'+
+  '<label style="display:flex;gap:4px;align-items:center"><input type=checkbox id=blo '+(W.ot?'checked':'')+' style="width:auto">Órdenes de trabajo</label><label style="display:flex;gap:4px;align-items:center"><input type=checkbox id=bls '+(W.sv?'checked':'')+' style="width:auto">Aceite / valvulina</label><label style="display:flex;gap:4px;align-items:center"><input type=checkbox id=ble '+(W.ex?'checked':'')+' style="width:auto">Sumar taller externo a mano de obra</label><button class=s id=blx>Exportar CSV</button></div>'+
+  '<div class=cards><div class=card><b>'+mny(T0.rp)+'</b>Repuestos ('+pc(T0.rp,G)+')</div><div class=card><b>'+mny(T0.mo)+'</b>Mano de obra ('+pc(T0.mo,G)+')</div><div class="card y"><b>'+mny(G)+'</b>Total mantenimiento</div><div class=card><b>'+T0.n+'</b>Registros con costo</div></div>'+chart+
+  (L.length?'<div class=tw><table><tr><th>Vehículo<th>Repuestos<th>% rep.<th>Mano de obra<th>% M.O.<th>Total<th>% del total<th>Registros</tr>'+L.map(([k,x])=>{const t2=x.rp+x.mo;return'<tr class="balr'+(k===W.k?' sel':'')+'" data-k="'+esc(k)+'"><td><b>'+keyLbl(k)+'</b><td>'+mny(x.rp)+'<td>'+pc(x.rp,t2)+'<td>'+mny(x.mo)+'<td>'+pc(x.mo,t2)+'<td><b>'+mny(t2)+'</b><td>'+pc(t2,G)+'<td>'+x.n+'</tr>'}).join('')+'<tr><td><b>TOTAL FLOTA</b><td><b>'+mny(T0.rp)+'</b><td>'+pc(T0.rp,G)+'<td><b>'+mny(T0.mo)+'</b><td>'+pc(T0.mo,G)+'<td><b>'+mny(G)+'</b><td>100%<td>'+T0.n+'</tr></table></div><small>Haga clic en un vehículo para ver el detalle por mes y por factura. Fuente: costos de las órdenes de trabajo y de los servicios de aceite/valvulina (facturas ZIP). Los costos compartidos entre tracto y tráiler siguen la casilla de más abajo.</small>':'<p>Sin costos registrados con estos filtros.</p>')+det+'</div>';
+  host.querySelector('#bly').onchange=e=>{W.y=e.target.value;draw()};host.querySelector('#blm').onchange=e=>{W.mo=e.target.value;draw()};host.querySelector('#blo').onchange=e=>{W.ot=e.target.checked?1:0;draw()};host.querySelector('#bls').onchange=e=>{W.sv=e.target.checked?1:0;draw()};host.querySelector('#ble').onchange=e=>{W.ex=e.target.checked?1:0;draw()};
+  host.querySelector('#blx').onclick=()=>csv('balance_costos_vehiculo',['vehiculo','placa','repuestos','mano_obra','total','registros'],L.map(([k,x])=>({vehiculo:k,placa:plc(k),repuestos:Math.round(x.rp),mano_obra:Math.round(x.mo),total:Math.round(x.rp+x.mo),registros:x.n})));
+  host.onclick=e=>{const r=e.target.closest('.balr');if(r&&!e.target.closest('[data-ot]')){W.k=W.k===r.dataset.k?'':r.dataset.k;draw()}}};
+ draw()}
+const _cost=window.cost;
+window.cost=async function(m){await _cost.apply(this,arguments);try{await balance(m)}catch(e){console.error(e)}};
+})();
+
 </script>
 </body></html>
