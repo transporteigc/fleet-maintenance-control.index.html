@@ -2117,13 +2117,12 @@ const COL=s=>/lubric|aceite|engrase|valvulina/i.test(s)?'#ce8813':/llanta/i.test
 function rate(eq){const E=estEq(eq),av=avgUse((E&&E.via)||eq);return{E,km:av&&av.km>0?av.km:null,h:av&&av.h>0?av.h:null}}
 window.ppGen=function(){const t=today(),end=addDays(t,365),KPD=+window.ppK||300,HPD=+window.ppH||8,occ=[],rules=new Map();
  (D.Plan||[]).filter(p=>p.equipo&&p.actividad&&+p.intervalo>0&&p.estado!=='Inactivo').forEach(p=>{const n=+p.intervalo,eq=p.equipo,u=p.unidad;let first,step,basis,flag='';
-  if(u==='dias'){step=n;basis='Cada '+n+' días'+(n===15?' (2 veces al mes: días 1 y 16)':'');
-   if(n===15){const out=[];for(let y=+t.slice(0,4);y<=+end.slice(0,4);y++)for(let m=1;m<=12;m++)['01','16'].forEach(d=>{const f=y+'-'+String(m).padStart(2,'0')+'-'+d;if(f>=t&&f<=end)out.push(f)});out.forEach(f=>occ.push({f,eq,act:p.actividad,sis:p.sistema,basis,flag:'',pv:p.estado==='Pendiente validacion'}));}
-   else{const bs=d10(p.ultima_fecha);if(OK.test(bs)){first=addDays(bs,n);if(first<t){first=t;flag='vencido: se programa hoy'}}else{first=addDays(t.slice(0,8)+'01',32).slice(0,8)+'01';flag='sin fecha del último servicio: fecha propuesta'}}}
+  if(u==='dias'){step=n;basis='Cada '+n+' días contados desde el último servicio registrado';
+   {const bs=d10(p.ultima_fecha);if(OK.test(bs)){first=addDays(bs,n);if(first<t){first=t;flag='vencido: se programa hoy'}}else{first=t;flag='sin registro del último servicio: se programa hoy y desde ahí se cuenta'}}}
   else{const r=rate(eq),rt=u==='horas'?(r.h||HPD):(r.km||KPD),med=u==='horas'?!!r.h:!!r.km,cur=r.E?(u==='horas'?r.E.h:r.E.km):null,ult=p.ultimo_valor===''||p.ultimo_valor==null?null:+p.ultimo_valor;
    step=Math.max(1,Math.round(n/rt));basis='Cada '+fmt(n)+' '+u+' ÷ '+Math.round(rt)+' '+u+'/día ≈ cada '+step+' días ('+(med?'ritmo medido con Satrack':'ritmo supuesto')+')';
    let rem=n;if(cur!=null&&ult!=null)rem=ult+n-cur;else flag='sin lectura o último valor: se cuenta desde hoy';if(rem<0){rem=0;flag='vencido: se programa hoy'}first=addDays(t,Math.ceil(rem/rt))}
-  if(first&&!(u==='dias'&&n===15))for(let f=first;f<=end;f=addDays(f,step))occ.push({f,eq,act:p.actividad,sis:p.sistema,basis,flag:f===first?flag:'',pv:p.estado==='Pendiente validacion'});
+  if(first)for(let f=first;f<=end;f=addDays(f,step))occ.push({f,eq,act:p.actividad,sis:p.sistema,basis,flag:f===first?flag:'',pv:p.estado==='Pendiente validacion'});
   const k=p.actividad+'|'+u+'|'+n,R=rules.get(k)||{act:p.actividad,sis:p.sistema,cada:fmt(n)+' '+u,how:basis,n:0};R.n++;rules.set(k,R)});
  occ.sort((a,b)=>a.f.localeCompare(b.f));return{occ,rules:[...rules.values()],KPD,HPD}};
 const plc=c=>{const q=eqs().find(x=>x.codigo===c)||{};return q.placa||c};
@@ -2834,24 +2833,23 @@ function planAnual(Y){const t=today(),cy=+t.slice(0,4),y0=Y+'-01-01',y1=Y+'-12-3
   const ul=d10(p.ultima_fecha);if(OKD.test(ul)&&!cand.some(e=>Math.abs(daysBetween(e.f,ul))<=1))cand.push({src:'PL',key:'PL:'+p.id,id:'',eq,f:ul,text:'',r:0,m:0});
   const byD=new Map();cand.forEach(e=>{const c=byD.get(e.f);if(c)c.items.push(e);else byD.set(e.f,{f:e.f,items:[e]})});
   cand=[...byD.values()].sort((a,b)=>a.f.localeCompare(b.f));
-  let step,basis,fixed=false;
-  if(u==='dias'){step=Math.max(1,n);fixed=n===15;basis='Cada '+n+' días'+(fixed?' (días 1 y 16 de cada mes: 24 al año)':'')}
-  else{const rt=rateOf(eq),r=u==='horas'?(rt.h||HPD):(rt.km||KPD),med=u==='horas'?!!rt.h:!!rt.km;step=Math.max(1,Math.round(n/r));basis='Cada '+fmt(n)+' '+u+' ÷ '+Math.round(r)+' '+u+'/día ≈ cada '+step+' días ('+(med?'ritmo medido con Satrack':'ritmo supuesto')+')'}
-  const tol=Math.min(45,Math.max(7,Math.floor(step/2))),occ=[],used=new Set();
-  if(fixed){for(let m=1;m<=12;m++)['01','16'].forEach(dy=>occ.push({d:Y+'-'+pad(m)+'-'+dy}));
-   occ.forEach(o=>{let b=null;cand.forEach((e,i)=>{if(used.has(i))return;const dd=Math.abs(daysBetween(e.f,o.d));if(dd<=tol&&(b==null||dd<b.dd))b={i,dd}});if(b){used.add(b.i);o.ex=cand[b.i]}})}
-  else{const bef=cand.filter(e=>e.f<y0);let cur=bef.length?bef[bef.length-1].f:null;
-   if(cur!=null&&daysBetween(cur,y0)>730)cur=addDays(cur,Math.floor(daysBetween(cur,y0)/step)*step);
-   if(cur==null){const iy=cand.findIndex(e=>e.f>=y0&&e.f<=y1);
-    if(iy>=0){used.add(iy);occ.push({d:cand[iy].f,ex:cand[iy],first:true});cur=cand[iy].f}
-    else if(Y>=cy){gen().occ.filter(o=>o.eq===eq&&o.act===p.actividad&&o.f>=y0&&o.f<=y1).forEach(o=>occ.push({d:o.f,flag:o.flag}))}}
-   if(cur!=null){let g=0;while(g++<2500){const due=addDays(cur,step);if(due>y1)break;let b=null;
-     cand.forEach((e,i)=>{if(used.has(i)||e.f<=cur)return;if(e.f<addDays(due,-tol)||e.f>addDays(due,tol))return;const dd=Math.abs(daysBetween(e.f,due));if(b==null||dd<b.dd)b={i,dd}});
-     const o={d:due};let miss=false;
-     if(b){used.add(b.i);o.ex=cand[b.i];cur=o.ex.f}else{miss=addDays(due,tol)<t;cur=due;if(miss&&u!=='dias'){cur=addDays(t,-step)>due?addDays(t,-step):due}}
-     if(due>=y0)occ.push(o)}}}
+  let step,basis;
+  if(u==='dias'){step=Math.max(1,n);basis='Cada '+n+' días contados desde el último servicio registrado'}
+  else{const rt=rateOf(eq),r=u==='horas'?(rt.h||HPD):(rt.km||KPD),med=u==='horas'?!!rt.h:!!rt.km;step=Math.max(1,Math.round(n/r));basis='Cada '+fmt(n)+' '+u+' ÷ '+Math.round(r)+' '+u+'/día ≈ cada '+step+' días ('+(med?'ritmo medido con Satrack':'ritmo supuesto')+'), contados desde el último servicio registrado'}
+  const tol=Math.min(45,Math.max(7,Math.floor(step/2))),occ=[],push=o=>{if(o.d>=y0&&o.d<=y1)occ.push(o)};
+  /* RECÁLCULO AUTOMÁTICO: cada servicio registrado (orden cerrada, servicio de aceite/valvulina o fecha del plan) reinicia el conteo: próxima fecha = fecha REAL de ejecución + intervalo */
+  if(cand.length){
+   cand.forEach((e,i)=>{const pd=i?addDays(cand[i-1].f,step):null;
+    push({d:e.f,ex:e,prog:pd&&pd!==e.f&&addDays(pd,tol)>=e.f?pd:null});
+    const nx=cand[i+1];
+    if(nx){let due=addDays(e.f,step),g=0;while(g++<2500&&addDays(due,tol)<nx.f){push({d:due});due=addDays(due,step)}}});
+   let cur=cand[cand.length-1].f,g=0;
+   if(daysBetween(cur,y0)>730)cur=addDays(cur,Math.floor(daysBetween(cur,y0)/step)*step);
+   while(g++<2500){const due=addDays(cur,step);if(due>y1)break;push({d:due});
+    const miss=addDays(due,tol)<t;cur=due;if(miss&&u!=='dias'){cur=addDays(t,-step)>due?addDays(t,-step):due}}}
+  else if(Y>=cy){gen().occ.filter(o=>o.eq===eq&&o.act===p.actividad&&o.f>=y0&&o.f<=y1).forEach(o=>occ.push({d:o.f,flag:o.flag}))}
   occ.forEach(o=>{o.st=o.ex?'ok':addDays(o.d,tol)<t?'miss':o.d<=t?'pend':'fut'});
-  const extras=cand.filter((e,i)=>!used.has(i)&&e.f>=y0&&e.f<=y1&&e.f<=t);
+  const extras=[];
   series.push({eq,placa:plc(eq),act:p.actividad,sis:p.sistema||'',kind:k,unit:u,n,step,tol,basis,occ,extras,pv:p.estado==='Pendiente validacion',virt:!!p._v,planId:p.id})});
  const order=eqs().map(e=>e.codigo);series.sort((a,b)=>{const ia=order.indexOf(a.eq),ib=order.indexOf(b.eq);return(ia<0?999:ia)-(ib<0?999:ib)||a.act.localeCompare(b.act)});
  return{Y,series}}
@@ -2874,7 +2872,7 @@ function cellDialog(s,mo,Y,after){const d=$('#dlg'),t=today(),can=canW();d.class
  ST={ok:'<span class="b g">Ejecutada</span>',miss:'<span class="b r">No ejecutada</span>',pend:'<span class="b y">Por ejecutar (en plazo)</span>',fut:'<span class="b">Programada</span>'},
  reg=e=>e.items.map(i=>i.src==='OT'?'<a class=lk data-ot="'+esc(i.id)+'">OT '+esc(i.id)+'</a>':i.src==='SV'?'Servicio de lubricación'+(i.tipo?' · '+esc(i.tipo):''):'Registro en el plan').join('<br>');
  d.innerHTML='<h3>'+esc(s.act)+' · '+eqTxt(s.eq)+' · '+MESES[mo]+' '+Y+'</h3><p class=lgd>'+esc(s.basis)+'. Tolerancia: ±'+s.tol+' días alrededor de la fecha programada.</p>'+
- (oc.length?TB(['Fecha programada','Estado','Ejecutado el','Registro (OT / servicio)','Repuestos','Mano de obra',''],oc.map((o,i)=>[fmtD(o.d),ST[o.st],o.ex?fmtD(o.ex.f):'—',o.ex?reg(o.ex):'—',o.ex?mny(o.ex.items.reduce((a,x)=>a+x.r,0)):'—',o.ex?mny(o.ex.items.reduce((a,x)=>a+x.m,0)):'—',!o.ex&&can?'<button class=s data-mk="'+i+'">＋ Crear OT</button>':''])):'<p>Sin actividades programadas este mes.</p>')+
+ (oc.length?TB(['Fecha programada','Estado','Ejecutado el','Registro (OT / servicio)','Repuestos','Mano de obra',''],oc.map((o,i)=>[fmtD(o.prog||o.d),ST[o.st],o.ex?fmtD(o.ex.f):'—',o.ex?reg(o.ex):'—',o.ex?mny(o.ex.items.reduce((a,x)=>a+x.r,0)):'—',o.ex?mny(o.ex.items.reduce((a,x)=>a+x.m,0)):'—',!o.ex&&can?'<button class=s data-mk="'+i+'">＋ Crear OT</button>':''])):'<p>Sin actividades programadas este mes.</p>')+
  (ex.length?'<h4>Ejecutadas fuera de las fechas programadas</h4>'+TB(['Fecha','Registro'],ex.map(e=>[fmtD(e.f),reg(e)])):'')+
  '<div class=bar style="margin-top:10px"><button class=s id=pd_x>Cerrar</button></div>';
  d.showModal();$('#pd_x').onclick=()=>d.close();
@@ -2888,7 +2886,7 @@ window.ppView=async function(m){await Promise.all(['Tractocamiones','Traileres',
  const tot=S.reduce((a,s)=>{const z=sStat(s);a.n+=z.n;a.ok+=z.ok;a.miss+=z.miss;a.pend+=z.pend;return a},{n:0,ok:0,miss:0,pend:0});
  const seen=new Set();let cr=0,cm=0;S.forEach(s=>{[...s.occ.filter(o=>o.ex).map(o=>o.ex),...s.extras].forEach(e=>e.items.forEach(i=>{if(seen.has(i.key))return;seen.add(i.key);cr+=i.r;cm+=i.m}))});
  m.innerHTML='<h3>Plan de mantenimiento preventivo anual · por tarea y por vehículo</h3>'+
- '<div class=wn style="background:#eef6fb;border-color:#002e42"><b>Cómo funciona (sincronizado):</b> ① cada tarea del plan (engrase, aceite, filtros, valvulinas, llantas…) tiene su intervalo por vehículo; ② el plan calcula las fechas del año (engrase: días 1 y 16; km u horas se convierten a días con el uso Satrack); ③ lo <b>ejecutado se marca solo</b> cuando existe una <b>orden de trabajo cerrada</b> con esa actividad (o un servicio de aceite / valvulina registrado) para ese vehículo en la fecha programada ±la tolerancia. Los mismos datos alimentan los controles de <b>Engrase</b>, <b>Aceite, filtros y valvulina</b> y el <b>Calendario</b>.</div>'+
+ '<div class=wn style="background:#eef6fb;border-color:#002e42"><b>Cómo funciona (sincronizado):</b> ① cada tarea del plan (engrase, aceite, filtros, valvulinas, llantas…) tiene su intervalo por vehículo; ② el plan calcula las fechas del año <b>desde el último servicio registrado</b> (el engrase cada 15 días, aceite cada 13.000 km, etc.; km u horas se convierten a días con el uso Satrack) y <b>se recalcula solo cada vez que registra un servicio</b>: si lo hizo antes o después de lo programado, el conteo arranca de nuevo desde la fecha real; ③ lo <b>ejecutado se marca solo</b> cuando existe una <b>orden de trabajo cerrada</b> con esa actividad (o un servicio de aceite / valvulina registrado) para ese vehículo en la fecha programada ±la tolerancia. Los mismos datos alimentan los controles de <b>Engrase</b>, <b>Aceite, filtros y valvulina</b> y el <b>Calendario</b>.</div>'+
  '<div class=cards><div class=card><b>'+tot.n+'</b>Actividades programadas '+W.y+'</div><div class="card g"><b>'+tot.ok+'</b>Ejecutadas (OT / servicios)</div><div class="card r"><b>'+tot.miss+'</b>No ejecutadas (vencidas)</div><div class="card y"><b>'+tot.pend+'</b>En plazo por ejecutar</div><div class=card><b>'+pcTxt(tot.ok+tot.miss?Math.round(tot.ok/(tot.ok+tot.miss)*100):null)+'</b>Cumplimiento a hoy</div><div class=card><b>'+mny(cr)+'</b>Repuestos ejecutados</div><div class=card><b>'+mny(cm)+'</b>Mano de obra ejecutada</div></div>'+
  '<div class=bar>Año <select id=ppy>'+[cy-1,cy,cy+1].map(y=>'<option '+(y===W.y?'selected':'')+'>'+y+'</option>').join('')+'</select><select id=ppe><option value="">Todos los vehículos</option>'+eqL.map(c=>'<option value="'+esc(c)+'" '+(c===W.e?'selected':'')+'>'+esc(eqLbl(c))+'</option>').join('')+'</select><select id=ppa><option value="">Todas las tareas</option>'+acts.map(a=>'<option '+(a===W.a?'selected':'')+'>'+esc(a)+'</option>').join('')+'</select><button id=ppc>📅 Ver en el calendario</button><button class=s id=ppx>Exportar CSV</button></div>'+
  '<div class=pal><span><i style="background:#d9f2db"></i>Ejecutada</span><span><i style="background:#ffe0b2"></i>Parcial</span><span><i style="background:#fdd"></i>No ejecutada</span><span><i style="background:#fff0c2"></i>En plazo</span><span><i style="background:#e3f0fb"></i>Programada (futuro)</span><span>Cada celda = ejecutadas/programadas del mes · clic para ver el detalle y las OT · «+n» = ejecutadas fuera de fecha</span></div>'+
@@ -2897,7 +2895,7 @@ window.ppView=async function(m){await Promise.all(['Tractocamiones','Traileres',
  '<p><small>Las fechas de meses pasados se reconstruyen con el ciclo del protocolo a partir del último servicio registrado; si un vehículo no tiene ningún registro, solo se programa hacia adelante. Los ítems «por validar» se muestran para planear, pero confirme su intervalo en Plan por placa.</small></p>';
  $('#ppy').onchange=e=>{W.y=+e.target.value;ppView(m)};$('#ppe').onchange=e=>{W.e=e.target.value;ppView(m)};$('#ppa').onchange=e=>{W.a=e.target.value;ppView(m)};
  $('#ppc').onclick=()=>{CALS.tp.plan=1;CALS.tp.ejec=1;CALS.v='mes';CALS.y=W.y;CALS.mo=W.y===cy?+today().slice(5,7)-1:0;CALS.eq=W.e;go('cal')};
- $('#ppx').onclick=()=>csv('plan_anual_'+W.y,['vehiculo','placa','tarea','programada','estado','ejecutada','registro'],S.flatMap(s=>s.occ.map(o=>({vehiculo:s.eq,placa:s.placa,tarea:s.act,programada:o.d,estado:{ok:'Ejecutada',miss:'No ejecutada',pend:'En plazo',fut:'Programada'}[o.st],ejecutada:o.ex?o.ex.f:'',registro:o.ex?o.ex.items.map(i=>i.id||i.src).join(' ; '):''}))));
+ $('#ppx').onclick=()=>csv('plan_anual_'+W.y,['vehiculo','placa','tarea','programada','estado','ejecutada','registro'],S.flatMap(s=>s.occ.map(o=>({vehiculo:s.eq,placa:s.placa,tarea:s.act,programada:o.prog||o.d,estado:{ok:'Ejecutada',miss:'No ejecutada',pend:'En plazo',fut:'Programada'}[o.st],ejecutada:o.ex?o.ex.f:'',registro:o.ex?o.ex.items.map(i=>i.id||i.src).join(' ; '):''}))));
  m.onclick=e=>{const c=e.target.closest('.cc');if(c)cellDialog(S[+c.dataset.s],+c.dataset.m,W.y,()=>ppView(m))}};
 
 /* ---- Calendario: plan + ejecutado, sincronizados ---- */
@@ -2907,7 +2905,7 @@ window.calEv=function(){const r=_ce2.apply(this,arguments);
  try{const t=today(),cy=+t.slice(0,4),keep=r.E.filter(e=>e.tp!=='plan'),add=[];
   for(const Y of [cy-1,cy,cy+1]){planAnual(Y).series.forEach(s=>{
    s.occ.forEach(o=>{
-    if(o.ex){const it=o.ex.items.find(i=>i.src==='OT');add.push({f:o.ex.f,tp:'ejec',eq:s.eq,tit:s.act+' · '+s.placa+(it?' ('+it.id+')':''),det:'Ejecutado'+(o.ex.f!==o.d?' (programado para el '+fmtD(o.d)+')':'')+' · '+o.ex.items.map(i=>i.src==='OT'?'OT '+i.id:i.src==='SV'?'servicio de lubricación':'registro del plan').join(', '),lv:4});return}
+    if(o.ex){const it=o.ex.items.find(i=>i.src==='OT');add.push({f:o.ex.f,tp:'ejec',eq:s.eq,tit:s.act+' · '+s.placa+(it?' ('+it.id+')':''),det:'Ejecutado'+(o.prog?' (estaba programado para el '+fmtD(o.prog)+'; el plan se recalculó desde esta fecha)':'')+' · '+o.ex.items.map(i=>i.src==='OT'?'OT '+i.id:i.src==='SV'?'servicio de lubricación':'registro del plan').join(', '),lv:4});return}
     if(keep.some(e=>e.tp!=='ejec'&&e.eq&&String(e.eq).includes(s.eq)&&(e.tit===s.act||(/engrase/i.test(e.tit)&&s.kind==='engrase'))&&Math.abs(daysBetween(e.f,o.d))<=3))return;
     add.push({f:o.d,tp:'plan',eq:s.eq,tit:s.act+' · '+s.placa,det:s.basis+(o.st==='miss'?' · NO EJECUTADA':o.st==='pend'?' · en plazo de ejecución':''),lv:o.st==='miss'?1:o.st==='pend'?3:4})});
    s.extras.forEach(e=>{const it=e.items.find(i=>i.src==='OT');add.push({f:e.f,tp:'ejec',eq:s.eq,tit:s.act+' · '+s.placa+(it?' ('+it.id+')':''),det:'Ejecutado fuera de las fechas del plan',lv:4})})})}
@@ -2935,7 +2933,7 @@ window.engTab=async function(b,again){await Promise.all(['Ordenes','Acoplamiento
  const O=(D.Ordenes||[]).filter(o=>o.estado==='Cerrada'&&/engrase/i.test([o.actividades,o.diagnostico,o.novedad_id].join(' '))&&d10(o.fecha_cierre||o.fecha).slice(0,4)===String(Y)).sort((a,c)=>d10(c.fecha_cierre||c.fecha).localeCompare(d10(a.fecha_cierre||a.fecha)));
  const cs=O.map(o=>{const B=FT().parseRep(o.repuestos).B;return{o,B,r:+o.costo_repuestos||0,m:(+o.costo_mano_obra||0)+(+o.costo_externo||0)}});
  b.innerHTML='<div class=bar>Año a revisar: <select id=eny>'+[cy-1,cy,cy+1].map(y=>'<option '+(y===Y?'selected':'')+'>'+y+'</option>').join('')+'</select>'+(can?'<button id=enn>＋ Registrar engrase (con factura)</button>':'')+'<button class=s id=enp>🗓️ Ver en el plan anual</button><button class=s id=enc>📅 Ver en el calendario</button></div>'+
- '<div class=wn style="background:#eef6fb;border-color:#002e42"><b>Protocolo de engrase (vigente todos los años):</b> se engrasa el tractocamión y su tráiler <b>cada 15 días: 2 veces al mes</b> (días 1 y 16) = <b>24 engrases al año por conjunto</b>. Este control está <b>sincronizado con el Plan preventivo anual y el Calendario</b>: lo ejecutado sale de las órdenes de trabajo cerradas con engrase (tolerancia ±7 días). Para registrar uno nuevo con su factura electrónica use «＋ Registrar engrase».</div>'+
+ '<div class=wn style="background:#eef6fb;border-color:#002e42"><b>Protocolo de engrase (vigente todos los años):</b> se engrasa el tractocamión y su tráiler <b>cada 15 días contados desde el último engrase registrado</b> (≈ 24 al año por conjunto). Si lo hace antes o después de la fecha programada, el plan se recalcula y el siguiente toca 15 días después de la fecha real. Este control está <b>sincronizado con el Plan preventivo anual y el Calendario</b>: lo ejecutado sale de las órdenes de trabajo cerradas con engrase (tolerancia ±7 días). Para registrar uno nuevo con su factura electrónica use «＋ Registrar engrase».</div>'+
  TB(['Tracto – Tráiler','',...MES,'Total'],rows)+
  '<h4>Engrases registrados en '+Y+' · costos y facturas</h4>'+TB(['Fecha','Equipo','Actividad','Repuestos','Mano de obra','Facturas',''],cs.map(c=>[fmtD(d10(c.o.fecha_cierre||c.o.fecha)),eqTxt(c.o.equipo),esc(String(c.o.actividades||'').slice(0,70)),c.r?mny(c.r):'—',c.m?mny(c.m):'—',c.B.length?'🧾 '+esc(c.B.map(x=>x.n).join(', ').slice(0,50)):'<small>'+esc([c.o.factura_repuestos,c.o.factura_mantenimiento].filter(Boolean).join(' ; ')||'—')+'</small>','<button class=s data-ot="'+esc(c.o.id)+'">'+(can?'Abrir / agregar factura':'Ver')+'</button>']))+
  '<p><b>Total '+Y+':</b> repuestos '+mny(cs.reduce((a,c)=>a+c.r,0))+' · mano de obra '+mny(cs.reduce((a,c)=>a+c.m,0))+'</p><p>'+esc(SEED.engnota||'')+'</p>'+
@@ -2986,6 +2984,39 @@ async function balance(m){await Promise.all(['Tractocamiones','Traileres','Orden
  draw()}
 const _cost=window.cost;
 window.cost=async function(m){await _cost.apply(this,arguments);try{await balance(m)}catch(e){console.error(e)}};
+
+/* ================= RECÁLCULO AUTOMÁTICO DEL PLAN AL REGISTRAR MANTENIMIENTO ================= */
+/* El plan anual y el calendario se calculan siempre desde el último servicio registrado (ver planAnual). Aquí además se actualiza la fila del Plan por placa
+   (ultima_fecha / ultimo_valor) para que Alertas, Inicio, Programación por componente y el control de engrase usen la misma fecha. */
+const SYNCED=new Set();
+async function igcSyncPlan(rerender){
+ try{if(OFF||typeof canW!=='function'||!canW()||!(D.Plan||[]).length)return 0}catch(e){return 0}
+ const t=today(),EX=execs(),pm=pairsMap();let n=0;
+ for(const p of (D.Plan||[])){
+  if(!p.id||String(p.id).indexOf('tmp_')===0||!p.equipo||!p.actividad||!(+p.intervalo>0)||p.estado==='Inactivo')continue;
+  const k=KIND(p.actividad),mt=matcher(p),eq=p.equipo,
+   c=EX.filter(e=>e.f<=t&&(e.eq===eq||(k==='engrase'&&pm[eq]&&pm[eq].has(e.eq)))&&mt(e));
+  if(!c.length)continue;
+  const L=c.reduce((a,e)=>e.f>a?e.f:a,''),ul=d10(p.ultima_fecha);
+  if(OKD.test(ul)&&ul>=L)continue;
+  const key=p.id+'|'+L;if(SYNCED.has(key))continue;SYNCED.add(key);
+  const patch={id:p.id,ultima_fecha:L};
+  if(p.unidad==='km'||p.unidad==='horas'){let val=null;
+   for(const e of c.filter(x=>x.f===L)){
+    const r=e.src==='OT'?(D.Ordenes||[]).find(x=>x.id===e.id):(D.Servicios||[]).find(x=>x.id===e.id),v=r?(p.unidad==='km'?r.km:r.horas):'';
+    if(v!==''&&v!=null&&!isNaN(+v)){val=+v;break}}
+   if(val==null&&L===t){const E=estEq(eq),cu=E?(p.unidad==='horas'?E.h:E.km):null;if(cu!=null)val=Math.round(cu*10)/10}
+   if(val!=null)patch.ultimo_valor=val}
+  try{await call('save','Plan',patch);n++}catch(e){console.error(e)}}
+ if(n&&rerender&&!document.querySelector('dialog[open]')){try{go(...cur)}catch(e){}}
+ return n}
+window.igcSyncPlan=igcSyncPlan;
+const _fqd=fqDrain;
+fqDrain=async function(){const r=await _fqd.apply(this,arguments);try{await igcSyncPlan(true)}catch(e){console.error(e)}return r};
+const _ppV=window.ppView;
+window.ppView=async function(m){try{await Promise.all(['Plan','Ordenes','Servicios','Acoplamientos','Tractocamiones','Traileres'].map(load));await igcSyncPlan(false)}catch(e){}return _ppV.apply(this,arguments)};
+const _calV=window.cal;
+window.cal=async function(m){try{await Promise.all(['Plan','Ordenes','Servicios','Acoplamientos','Tractocamiones','Traileres'].map(load));await igcSyncPlan(false)}catch(e){}return _calV.apply(this,arguments)};
 })();
 
 </script>
