@@ -1910,6 +1910,7 @@ async function view(m){await Promise.all(['Tractocamiones','Traileres','Acoplami
  if($('#eg_n'))$('#eg_n').onclick=()=>dlg('',m);$('#eg_c').onclick=()=>{CALS.tp.eng=1;go('cal')}}
 function dlg(l0,m){const U=units();if(!U.length)return msg('Primero registre los equipos',1);const d=$('#dlg'),u0=U.find(u=>u.label===l0)||U[0],OP=['Realizado','Con hallazgo','No realizado'];d.className='';
  d.innerHTML=`<h3>⚙️ Registrar engrase general quincenal</h3><div class=fg><div class=w><label>Conjunto (tractocamión + volco)</label>${optSel('eg_e',U.map(u=>u.label),u0.label)}</div><div><label>Fecha del engrase</label><input id=eg_f type=date value="${today()}" max="${today()}"></div><div><label>Odómetro del tractocamión (km) — opcional</label><input id=eg_k type=number></div><div class=w><label>Responsable</label><input id=eg_r></div><div class=w id=eg_l></div><div class=w><label>Observaciones / hallazgos</label><textarea id=eg_o rows=2 placeholder="Ej.: nivel bajo en el diferencial trasero, valvulina oscura, grasera dañada en el volco…"></textarea></div></div><div class=bar style="margin-top:10px"><button id=eg_ok>Guardar</button><button class=s id=eg_x>Cerrar</button></div><small>Al guardar, el próximo engrase del conjunto queda a los ${DEF} días: se actualizan la alerta y el calendario, y el registro queda en la hoja de vida del tractocamión y del volco. Si hay hallazgos que requieren reparación, regístrelos también como novedad.</small>`;
+ let W=null;try{if(window.igcCostBlock)W=window.igcCostBlock(d,d.querySelector('.bar'),{})}catch(e){console.error(e)}
  const cur=()=>U.find(u=>u.label===$('#eg_e').value)||U[0],
  paint=()=>{const u=cur(),E=u.t&&estEq(u.t);$('#eg_k').value=E&&E.km!=null?Math.round(E.km):'';$('#eg_l').innerHTML=IT.filter(i=>i[1]==='t'?u.t:u.v).map(i=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin:4px 0"><span>${i[2]}</span><select id="ck_${i[0]}" style="width:auto;flex:none">${OP.map(x=>`<option>${x}</option>`).join('')}</select></div>`).join('')};
  $('#eg_e').onchange=paint;paint();d.showModal();$('#eg_x').onclick=()=>d.close();
@@ -1918,11 +1919,13 @@ function dlg(l0,m){const U=units();if(!U.length)return msg('Primero registre los
   const st={};IT.forEach(i=>{const s=$('#ck_'+i[0]);if(s)st[i[0]]=s.value});
   if((u.t&&st.eg_t==='No realizado')||(u.v&&st.eg_v==='No realizado'))return msg('En el engrase general se engrasan el tractocamión y el semirremolque: marque ambos como realizados',1);
   const hall=Object.values(st).includes('Con hallazgo');
+  let G=null;if(W&&window.igcGather){G=window.igcGather(d,W);if(G.err)return msg(G.err,1);try{window.ensOrd&&window.ensOrd()}catch(e){}}
+  const dueno=u.t||u.codes[0];
   try{for(const c of u.codes){const T=c===u.t,its=IT.filter(i=>i[1]===(T?'t':'v')),acts=its.map(i=>'• '+i[2]+': '+st[i[0]]).join('\n'),pr=row(c,/^Engrase general/i),pu=pr&&pr.ultima_fecha?String(pr.ultima_fecha).slice(0,10):'';
     if(pr){if(!FE.test(pu)||f>=pu)await call('save','Plan',{id:pr.id,ultima_fecha:f})}
     else await call('save','Plan',{equipo:c,sistema:'Sistema de lubricación',actividad:ACT,unidad:'dias',intervalo:String(DEF),ultima_fecha:f,fuente:'Control de engrase quincenal IGC (cada '+DEF+' días)',tipo_fuente:'Politica interna',estado:'Activo'});
     const dr=T?row(c,/^Revisar aceite del diferencial/i):null;if(dr&&(!FE.test(String(dr.ultima_fecha||'').slice(0,10))||f>=String(dr.ultima_fecha).slice(0,10)))await call('save','Plan',{id:dr.id,ultima_fecha:f});
-    await call('save','Ordenes',{equipo:c,componente:'Sistema de lubricación',novedad_id:REF,fecha:f,km:T?g('eg_k'):'',diagnostico:'Engrase general quincenal (cada '+DEF+' días) · conjunto '+nom(u),actividades:acts,responsable:g('eg_r'),resultado:g('eg_o'),estado:'Cerrada',fecha_cierre:f,prioridad:'P4'})}
+    await call('save','Ordenes',{equipo:c,componente:'Sistema de lubricación',novedad_id:REF,fecha:f,km:T?g('eg_k'):'',diagnostico:'Engrase general quincenal (cada '+DEF+' días) · conjunto '+nom(u),actividades:acts,responsable:g('eg_r'),resultado:g('eg_o'),estado:'Cerrada',fecha_cierre:f,prioridad:'P4',...(G&&c===dueno?{costo_repuestos:G.r||'',costo_mano_obra:G.m||'',factura_repuestos:W.WR.get(),factura_mantenimiento:W.WM.get(),repuestos:window.facPdf._t.ser('',G.B)}:{})})}
    d.close();msg(hall?'Engrase registrado. Hay hallazgos: si requieren reparación, regístrelos como novedad':'Engrase registrado: próximo en '+DEF+' días');
    await Promise.all(['Plan','Ordenes','Tractocamiones'].map(load));view(m)}catch(x){msg('Error: '+x,1)}}}
 M.splice(8,0,[ICON+'Control de engrase quincenal','eng']);
@@ -2767,6 +2770,7 @@ function gather(d,W){const t=FT(),P=t.parseRep((d.querySelector('#co_rel')||{}).
  else{const x=B.find(b=>!String(b.p||'').trim());if(x)err='Indique el proveedor de la factura '+x.n}
  return{r,m,B,err}}
 const RLOCK=()=>{try{window.ensOrd&&window.ensOrd()}catch(e){}};
+window.igcCostBlock=costBlock;window.igcGather=gather;
 
 /* ---- Aceite / valvulina: el diálogo de registro ahora admite facturas ---- */
 const _svc=window.svcDialog;
