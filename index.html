@@ -98,7 +98,7 @@ const SEED={"hv":{"SZW818":{"placa":"SZW818","marca":"KENWORTH","linea":"T800","
 const NEWS={Uso:['fecha','equipo','km_dia','horas_dia','vel_prom','vel_max','primer_encendido','ultimo_apagado','ubicacion_inicio','ubicacion_fin','fuente'],
 Servicios:['equipo','fecha','km','horas','tipo|Cambio de aceite de motor/Valvulina caja de velocidades/Valvulina diferencial delantero/Valvulina diferencial trasero/Solo filtros','f_aceite|Si/No','f_combustible|Si/No','f_trampa|Si/No','f_agua|Si/No','f_aire|Si/No','producto','detalle_cantidad','responsable','notas']};
 Object.assign(S0,NEWS);
-const ORDX=['fecha_inicio','hora_inicio','hora_cierre','factura_repuestos','factura_mantenimiento','numero_factura'];window.ensOrd=()=>{[S0,(()=>{try{return S}catch(e){return null}})()].forEach(s=>{if(s&&s.Ordenes)ORDX.forEach(c=>{if(!s.Ordenes.some(x=>x.split('|')[0]===c))s.Ordenes.push(c)})})};ensOrd();
+const ORDX=['fecha_inicio','hora_inicio','hora_cierre','factura_repuestos','factura_mantenimiento','numero_factura','partes_intervenidas'];window.ensOrd=()=>{[S0,(()=>{try{return S}catch(e){return null}})()].forEach(s=>{if(s&&s.Ordenes)ORDX.forEach(c=>{if(!s.Ordenes.some(x=>x.split('|')[0]===c))s.Ordenes.push(c)})})};ensOrd();
 const HASH='af8c4dc1cfb051552429f0a65ab6aa2f13443b34c6a1a672ed1c76c400477abf';
 async function sha(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 const call0=(a,e,d)=>OFF?offCall(a,e,d||{}):cloud('api',{session:T,a,e,d:d||{}}).then(r=>{QCw(a);return r.data},x=>{const m=x&&x.message||String(x);if(/^Sesi[oó]n/i.test(m))sesionPerdida(m);throw m});
@@ -239,7 +239,7 @@ const menu=()=>{$('#nav').innerHTML=M.map((m,i)=>`<a data-i="${i}">${m[0]}</a>`)
 async function go(v,e,f){cur=[v,e,f];document.querySelectorAll('nav a').forEach((a,i)=>a.classList.toggle('on',M[i][1]===v&&M[i][2]===e&&M[i][3]===f));const m=$('#main'),__lt=setTimeout(()=>{m.style.opacity='.6'},350);
  try{await Promise.all(['Preop','Vencimientos','Acoplamientos'].map(load));if(v==='cc')await ccView(m);else if(v==='pre')await prePage(m);else if(v==='col')colPage(m);else if(v==='forms')await formsPage(m);else if(v==='ent'&&e==='Novedades')await novPage(m);else if(v==='home')await home(m);else if(v==='ent')await list(e,m,f==='open'?r=>!['Cerrada','Cancelada','Rechazada'].includes(r.estado):null);else if(v==='hv')await hv(m);else if(v==='tires')await tires(m);else if(v==='prog')prog(m);else if(v==='alert')await alertView(m);else if(v==='dash')await dash(m);else if(v==='uso')await uso(m);else if(v==='lub')await lub(m);else if(v==='pci')await pciView(m);else if(v==='cal')await cal(m);else if(v==='cost')await cost(m);else cfg(m)}catch(x){m.innerHTML='<p class=b>Error: '+esc(x)+'</p>'}finally{clearTimeout(__lt);m.style.opacity=''}}
 const COLS0=e=>S[e].map(c=>{const[n,o]=c.split('|');return{n,o:o&&o.split('/')}}).filter(c=>c.n!=='hash');
-const OTORD=['equipo','componente','novedad_id','prioridad','estado','fecha','km','diagnostico','causa','responsable','taller','actividades','fecha_inicio','hora_inicio','fecha_cierre','hora_cierre','repuestos','costo_repuestos','factura_repuestos','costo_mano_obra','costo_externo','factura_mantenimiento','resultado','validacion_tecnica','garantia','numero_factura'];const COLS=e=>{const r=COLS0(e);return e!=='Ordenes'?r:[...r].sort((a,b)=>{const x=OTORD.indexOf(a.n),y=OTORD.indexOf(b.n);return(x<0?99:x)-(y<0?99:y)})};
+const OTORD=['equipo','componente','novedad_id','prioridad','estado','fecha','km','diagnostico','causa','responsable','taller','actividades','fecha_inicio','hora_inicio','fecha_cierre','hora_cierre','repuestos','costo_repuestos','factura_repuestos','costo_mano_obra','costo_externo','factura_mantenimiento','resultado','validacion_tecnica','partes_intervenidas','garantia','numero_factura'];const COLS=e=>{const r=COLS0(e);return e!=='Ordenes'?r:[...r].sort((a,b)=>{const x=OTORD.indexOf(a.n),y=OTORD.indexOf(b.n);return(x<0?99:x)-(y<0?99:y)})};
 const kind=n=>/^hora_(inicio|cierre)$/.test(n)?'time':/fecha|inicio|^fin$|entrega/.test(n)?'date':/^(km|horas|costo|valor|iva|cantidad|existencia|minimo|intervalo|ultimo_valor|prof|presion|ejes|n_llantas)/.test(n)?'number':/descripcion|detalle|actividades|diagnostico|obs|notas|requisito|repuestos|resultado|validacion/.test(n)?'textarea':'text';
 const bd=(n,v)=>{const c=/^P1$|Vencido|Inmoviliz|No conforme/.test(v)?'r':/^P2$/.test(v)?'o':/^P3$|Próximo|Sin datos|Pendiente/.test(v)?'y':/^P4$|^Operativo|Al día|^Conforme|Cerrada|Instalada/.test(v)?'g':'';return ['prioridad','estado','st','resultado'].includes(n)&&v?`<span class="b ${c}">${/^P[1-4]$/.test(v)&&n==='prioridad'?esc(v)+' '+LV[+v[1]][0]:esc(v)}</span>`:esc(v)};
 function csv(name,cs,rs){const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const t='\ufeff'+[cs.map(q),...rs.map(r=>cs.map(c=>q(r[c])))].map(r=>r.join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download=name+'.csv';a.click()}
@@ -2364,9 +2364,9 @@ function kmAuto(d,o){
 /* ===== PARCHE: facturas múltiples + proveedor, conductores, Novedades por fecha + panel de prioridad ===== */
 (()=>{
 const fx=s=>String(s==null?'':s);
-const facParse=s=>fx(s).split(/\s*;\s*/).map(x=>x.trim()).filter(Boolean).map(x=>{const m=/^(.*?)\s*\(([^()]*)\)\s*$/.exec(x);return m?{n:m[1].trim(),p:m[2].trim()}:{n:x,p:''}});
+const facParse=s=>fx(s).split(/\s*;\s*/).map(x=>x.trim()).filter(Boolean).map(x=>{const m=/^(.*?)\s*\(([^()]*)\)\s*$/.exec(x);if(!m)return{n:x,p:'',c:0};let p=m[2].trim(),c=0;const k=/^(.*?)\s*(?:·\s*)?\$\s*([\d.,]+)$/.exec(p);if(k){p=k[1].trim();c=+String(k[2]).replace(/\D/g,'')||0}return{n:m[1].trim(),p,c}});
 const clean=s=>fx(s).replace(/[;()]/g,' ').replace(/\s+/g,' ').trim();
-const facStr=a=>a.filter(r=>clean(r.n)||clean(r.p)).map(r=>(clean(r.n)||'S/N')+(clean(r.p)?' ('+clean(r.p)+')':'')).join(' ; ');
+const facStr=a=>a.filter(r=>clean(r.n)||clean(r.p)||+r.c).map(r=>{const c=+r.c?Math.round(+r.c):0,p=clean(r.p);return(clean(r.n)||'S/N')+((p||c)?' ('+p+(c?(p?' · ':'')+'$'+c.toLocaleString('es-CO'):'')+')':'')}).join(' ; ');
 window.facParse=facParse;
 
 /* ---- proveedores: también salen de las facturas ---- */
@@ -2379,12 +2379,18 @@ window.provList=()=>{const m=new Map();(_pl?_pl():[]).forEach(v=>m.set(v.toLower
 window.facWidget=(host,input,label)=>{
  let dl=document.getElementById('dl_prov2');if(!dl){dl=document.createElement('datalist');dl.id='dl_prov2';document.body.appendChild(dl)}
  dl.innerHTML=window.provList().map(v=>'<option value="'+esc(v)+'">').join('');
- let rows=facParse(input.value);if(!rows.length)rows=[{n:'',p:''}];
- const draw=()=>{host.innerHTML='<label>'+label+'</label>'+rows.map((r,i)=>`<div style="display:flex;gap:6px;margin:3px 0;align-items:center"><input data-fn="${i}" placeholder="N.º de factura" value="${esc(r.n==='S/N'?'':r.n)}" style="flex:1"><input data-fp="${i}" list=dl_prov2 autocomplete=off placeholder="Proveedor (elija o escriba)" value="${esc(r.p)}" style="flex:1.3"><button type=button class=d data-fx="${i}" title="Quitar esta factura">✕</button></div>`).join('')+'<button type=button class=s data-fa=1>＋ Agregar otra factura</button>'};
+ let rows=facParse(input.value);if(!rows.length)rows=[{n:'',p:'',c:0}];
+ const $c=v=>'$'+Math.round(+v||0).toLocaleString('es-CO');
+ const api={get:()=>facStr(rows),rows:()=>rows,onCost:null,sum:()=>rows.reduce((a,r)=>a+(+r.c||0),0)};
+ const upd=()=>{const f=host.querySelector('[data-ft]');if(!f)return;const z=api.sum();f.innerHTML=z?'<small>💰 <b>Total de las facturas:</b> '+$c(z)+' ('+rows.filter(r=>+r.c).length+' con costo)</small>':''};
+ const draw=()=>{host.innerHTML='<label>'+label+'</label>'+rows.map((r,i)=>`<div style="display:flex;gap:6px;margin:3px 0;align-items:center"><input data-fn="${i}" placeholder="N.º de factura" value="${esc(r.n==='S/N'?'':r.n)}" style="flex:1"><input data-fp="${i}" list=dl_prov2 autocomplete=off placeholder="Proveedor (elija o escriba)" value="${esc(r.p)}" style="flex:1.3"><input data-fc="${i}" type=number min=0 step=any placeholder="Costo ($)" title="Costo de esta factura" value="${+r.c||''}" style="flex:.9"><button type=button class=d data-fx="${i}" title="Quitar esta factura">✕</button></div>`).join('')+'<button type=button class=s data-fa=1>＋ Agregar otra factura</button><div data-ft style="margin-top:4px"></div>';upd()};
  const sync=()=>{input.value=facStr(rows);if(input.dispatchEvent)input.dispatchEvent(new Event('input',{bubbles:true}))};
- host.oninput=e=>{const t=e.target;if(t.dataset.fn!=null)rows[+t.dataset.fn].n=t.value;else if(t.dataset.fp!=null)rows[+t.dataset.fp].p=t.value;sync()};
- host.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.fa){rows.push({n:'',p:''});draw()}else if(b.dataset.fx!=null){rows.splice(+b.dataset.fx,1);if(!rows.length)rows=[{n:'',p:''}];draw();sync()}};
- draw();return{get:()=>facStr(rows)}};
+ host.oninput=e=>{const t=e.target;if(t.dataset.fn!=null)rows[+t.dataset.fn].n=t.value;else if(t.dataset.fp!=null)rows[+t.dataset.fp].p=t.value;else if(t.dataset.fc!=null){rows[+t.dataset.fc].c=+t.value||0;sync();upd();if(api.onCost)api.onCost();return}sync()};
+ host.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.fa){rows.push({n:'',p:'',c:0});draw()}else if(b.dataset.fx!=null){rows.splice(+b.dataset.fx,1);if(!rows.length)rows=[{n:'',p:'',c:0}];draw();sync();upd();if(api.onCost)api.onCost()}};
+ draw();return api};
+/* el costo total (repuestos o mano de obra) se suma de los costos individuales de las facturas */
+window.facLinkTotal=(d,w,ci,k)=>{if(!w||!ci)return;const calc=()=>{const t=window.facPdf&&window.facPdf._t;let B=[];try{B=t?t.parseRep((d.querySelector('#co_rel')||{}).value||'').B.filter(b=>b.k===k):[]}catch(e){}const inB=new Set(B.map(b=>b.n));return B.reduce((a,b)=>a+(+b.tot||0),0)+w.rows().reduce((a,r)=>a+(!inB.has(r.n)&&+r.c?+r.c:0),0)};
+ w.onCost=()=>{const z=calc();if(z>0){ci.value=String(Math.round(z*100)/100);ci.dispatchEvent(new Event('input',{bubbles:true}))}}};
 
 /* ---- validación: cada factura de una OT cerrada debe tener proveedor ---- */
 const _ov=window.otVal;
@@ -2399,7 +2405,7 @@ window.otDecor=function(d,o){const r=_od.apply(this,arguments);
   [['factura_repuestos','🧾 Facturas de repuestos (número y proveedor)'],['factura_mantenimiento','🧾 Facturas de mantenimiento / mano de obra (número y proveedor)']].forEach(([n,lb])=>{
    const i=d.querySelector('[data-n="'+n+'"]'),w=i&&i.closest('div');if(!i||!w)return;w.classList.add('w');
    const l=w.querySelector('label');if(l)l.style.display='none';i.style.display='none';
-   const h=document.createElement('div');w.appendChild(h);window.facWidget(h,i,lb)})}catch(e){console.error(e)}
+   const h=document.createElement('div');w.appendChild(h);const W0=window.facWidget(h,i,lb),ci=d.querySelector('[data-n="'+(n==='factura_repuestos'?'costo_repuestos':'costo_mano_obra')+'"]');if(ci)window.facLinkTotal(d,W0,ci,n==='factura_repuestos'?'R':'M')})}catch(e){console.error(e)}
  return r};
 
 /* ---- cierre rápido de la OT con facturas múltiples (sin costo externo) ---- */
@@ -2416,6 +2422,7 @@ window.closeOT=async function(id){const o=(D.Ordenes||[]).find(x=>x.id===id);if(
  <div class=w><label>Resultado / observaciones</label><textarea id=co_o rows=2>${v(o.resultado)}</textarea></div></div>
  <div class=bar style="margin-top:10px"><button id=co_ok>Cerrar orden</button><button class=s id=co_x>Cancelar</button></div>`;
  const WR=window.facWidget($('#co_hr'),{value:o.factura_repuestos||''},'🧾 Facturas de repuestos (número y proveedor)'),WM=window.facWidget($('#co_hm'),{value:o.factura_mantenimiento||''},'🧾 Facturas de mantenimiento / mano de obra (número y proveedor)');
+ try{window.facLinkTotal(d,WR,$('#co_r'),'R');window.facLinkTotal(d,WM,$('#co_m'),'M')}catch(e){console.error(e)}
  try{window.facPdf&&window.facPdf.attach(d,o,'close')}catch(e){console.error(e)}
  const SB=window.subsOT?window.subsOT(d,o,true):null;d.showModal();$('#co_x').onclick=()=>d.close();
  $('#co_ok').onclick=async()=>{const fi=g('co_fi'),hi=g('co_i'),f=g('co_f'),h=g('co_h'),r=g('co_r'),mo=g('co_m'),fr=WR.get(),fm=WM.get();
@@ -2763,7 +2770,7 @@ function costBlock(d,before,o){o=o||{};const blk=document.createElement('div');b
  blk.innerHTML='<div class=w><h4 style="margin:8px 0 0;color:var(--p);border-top:2px solid var(--a);padding-top:6px">Costos y facturas (cargue el ZIP de la factura electrónica)</h4></div><div><label>Costo de repuestos ($)</label><input id=co_r type=number min=0 step=any value="'+(o.r||'')+'"></div><div><label>Costo de mano de obra ($)</label><input id=co_m type=number min=0 step=any value="'+(o.m||'')+'"></div><div class=w id=co_hr></div><div class=w id=co_hm></div>';
  before.parentNode.insertBefore(blk,before);
  const WR=window.facWidget(d.querySelector('#co_hr'),{value:o.fr||''},'🧾 Facturas de repuestos (número y proveedor)'),WM=window.facWidget(d.querySelector('#co_hm'),{value:o.fm||''},'🧾 Facturas de mano de obra / mantenimiento (número y proveedor)');
- window.facPdf.attach(d,{repuestos:o.rel||''},'close');return{WR,WM}}
+ window.facLinkTotal(d,WR,d.querySelector('#co_r'),'R');window.facLinkTotal(d,WM,d.querySelector('#co_m'),'M');window.facPdf.attach(d,{repuestos:o.rel||''},'close');return{WR,WM}}
 function gather(d,W){const t=FT(),P=t.parseRep((d.querySelector('#co_rel')||{}).value||''),B=P.B.slice(),r=+d.querySelector('#co_r').value||0,m=+d.querySelector('#co_m').value||0;
  [['R',W.WR.get()],['M',W.WM.get()]].forEach(([k,s])=>window.facParse(s).forEach(f=>{const ex=B.find(b=>b.k===k&&b.n===f.n);if(ex){if(!ex.p&&f.p)ex.p=f.p}else if(f.n&&f.n!=='S/N')B.push({k,n:f.n,p:f.p,nit:'',tot:0,L:[]})}));
  let err='';
@@ -3037,4 +3044,111 @@ window.cal=async function(m){try{await Promise.all(['Plan','Ordenes','Servicios'
 })();
 
 </script>
+<script>
+/* ===== Partes intervenidas por la OT: diagrama del tractocamión y del tráiler (preventivo / correctivo / predictivo) ===== */
+(()=>{
+const TY={P:['Preventivo','#2e9e5b'],C:['Correctivo','#d32f2f'],D:['Predictivo','#1565c0']};
+const SD={IE:'izq. exterior',II:'izq. interior',DI:'der. interior',DE:'der. exterior',I:'izq.',D:'der.'};
+const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const isT=c=>(D.Tractocamiones||[]).some(x=>x.codigo===c),isR=c=>(D.Traileres||[]).some(x=>x.codigo===c);
+const cfgG=c=>{try{return JSON.parse(localStorage.getItem('igc_partes_'+c)||'{}')}catch(e){return{}}};
+const cfgS=(c,v)=>{try{localStorage.setItem('igc_partes_'+c,JSON.stringify(v))}catch(e){}};
+const nm=(v,a,b,df)=>{v=Math.round(+v);return v>=a&&v<=b?v:df};
+const parse=v=>{const S={};String(v||'').split(';').forEach(x=>{x=x.trim();const i=x.lastIndexOf('=');if(i<0)return;const t=x.slice(i+1).trim(),id=x.slice(0,i).trim();if(id&&TY[t])S[id]=t});return S};
+const ser=S=>Object.entries(S).map(([k,t])=>k+'='+t).join(' ; ');
+
+/* Catálogo de puntos de cada vehículo. Las llantas usan los mismos puestos del módulo Llantas. */
+function cat(c){
+ const tr=isT(c),P=[],T=[],AX=[];let H;
+ const add=(k,l,x,y,a,s,side)=>P.push({k,l,x,y,a,s,side});
+ const tires=(ax,n,y,lb)=>{AX.push(y);(n===2?[[58,'I'],[226,'D']]:[[44,'IE'],[64,'II'],[220,'DI'],[240,'DE']]).forEach(([x,s])=>T.push({k:'llanta:'+ax+'-'+s,l:'Llanta '+ax+' · '+SD[s],x,y}));P.push({k:'_ax'+ax,lb,x:258,y,t:1})};
+ if(tr){
+  H=380;const Y={dir:96,m1:240,m2:305};
+  add('cab','Cabina',150,33,'Ca','Cabina','r');add('rad','Enfriamiento (radiador)',150,72,'Rd','Radiador','r');
+  add('motor','Motor',150,124,'Mt','Motor','r');add('caja','Caja de cambios y embrague',150,158,'Cj','Caja / embrague','r');add('cardan','Cardán y crucetas',150,196,'Cd','Cardán','r');
+  add('fre:Direccional','Frenos · eje direccional',128,Y.dir,'F');add('dir','Dirección (caja, brazos y terminales)',172,Y.dir,'Dr');
+  add('mueD:I','Muelle delantero izq.',90,Y.dir,'M');add('mueD:D','Muelle delantero der.',210,Y.dir,'M');
+  add('fre:Motriz 1','Frenos · Motriz 1',128,Y.m1,'F');add('dif:Motriz 1','Diferencial Motriz 1',150,Y.m1,'Df');
+  add('quinta','Quinta rueda',150,272,'Q','Quinta rueda','r');
+  add('fre:Motriz 2','Frenos · Motriz 2',128,Y.m2,'F');add('dif:Motriz 2','Diferencial Motriz 2',150,Y.m2,'Df');
+  add('mueT:I','Muelle trasero izq.',90,258,'M');add('balT:I','Balancín trasero izq.',90,286,'B');add('mueT:D','Muelle trasero der.',210,258,'M');add('balT:D','Balancín trasero der.',210,286,'B');
+  add('elec','Sistema eléctrico (batería, alternador, luces)',92,150,'El','Eléctrico','l');add('comb','Tanque de combustible',92,178,'Cb','Combustible','l');
+  add('aire','Tanques de aire y sistema neumático',208,215,'Ai','Tanques de aire','r');
+  add('estr','Chasis y estructura',150,345,'Ch','Chasis y estructura','r');
+  tires('Direccional',2,Y.dir,'Direcc.');tires('Motriz 1',4,Y.m1,'Motriz 1');tires('Motriz 2',4,Y.m2,'Motriz 2');
+ }else{
+  const r=(D.Traileres||[]).find(x=>x.codigo===c)||{},g=cfgG(c),ne=nm(r.ejes,1,4,3),nb=nm(g.bal,0,8,4),nu=nm(g.mue,0,8,4),ya=k=>290+40*k,last=ya(ne-1);
+  H=last+70;
+  add('quinta','Quinta rueda / king pin',150,40,'Q','Quinta rueda / king pin','r');add('patas','Patas de apoyo',150,78,'Pa','Patas de apoyo','r');
+  add('hidr','Pivote y cilindro hidráulico del volco',150,118,'Hd','Pivote / cilindro volco','r');add('carr','Carrocería / platón (volco)',150,160,'Pl','Carrocería / platón','r');
+  add('aire','Tanque y sistema neumático',150,200,'Ai','Sistema neumático','r');add('elec','Luces y sistema eléctrico',150,240,'El','Luces / eléctrico','r');
+  for(let k=0;k<ne;k++){add('fre:Eje '+(k+1),'Frenos · Eje '+(k+1),128,ya(k),'F');add('eje:Eje '+(k+1),'Eje y rodamientos · Eje '+(k+1),172,ya(k),'E');tires('Eje '+(k+1),4,ya(k),'Eje '+(k+1))}
+  const yy=(i,n)=>n===1?(290+last)/2:290+(last-290)*(i/(n-1));
+  for(let i=0;i<nb;i++)add('bal:'+(i+1),'Balancín '+(i+1),96,yy(i,nb),String(i+1));
+  for(let i=0;i<nu;i++)add('mue:'+(i+1),'Muelle '+(i+1),204,yy(i,nu),String(i+1));
+  add('estr','Chasis y estructura',150,last+34,'Ch','Chasis y estructura','r');
+  P.push({k:'_hb',lb:'Balancines',x:96,y:272,t:1,mid:1},{k:'_hm',lb:'Muelles',x:204,y:272,t:1,mid:1});
+ }
+ return{P,T,AX,H,tr};
+}
+const GR={llantas:[/llanta|pinchazo|caucho|ampolla|banda de rodamiento|reencauch/,k=>/^llanta:/.test(k)],muelles:[/muelle|ballesta|hojas? de resorte|grapa|tornillo central|u-?bolt/,k=>/^mue/.test(k)],balan:[/balancin|buje|ecualizador|torque rod/,k=>/^bal/.test(k)],frenos:[/freno|zapata|campana|tambor|ratch|rachet|camara de freno/,k=>/^fre:/.test(k)],quinta:[/quinta|king ?pin/,k=>k==='quinta'],patas:[/patas? de apoyo|landing/,k=>k==='patas'],hidr:[/hidraulic|piston|cilindro|volco/,k=>k==='hidr'],carr:[/carroceria|platon|compuerta|bisagra|volco/,k=>k==='carr'],cardan:[/cardan|crucet|eje de transmision/,k=>k==='cardan'],dif:[/diferencial|corona|pinon/,k=>/^dif:/.test(k)],caja:[/caja de (cambios|velocidades)|transmision|embrague|clutch/,k=>k==='caja'],motor:[/motor|inyector|turbo|culata|cigue/,k=>k==='motor'],rad:[/radiador|refrigerante|enfria|termostato|ventilador/,k=>k==='rad'],dirn:[/direccion|rotula|terminal|pitman|cremallera/,k=>k==='dir'],elec:[/electric|bateria|alternador|arranque|luces?\b|bombillo|farola|cableado|fusible/,k=>k==='elec'],aire:[/tanque de aire|neumatic|compresor|valvula relay|secador|bombona/,k=>k==='aire'],comb:[/combustible|diesel|acpm/,k=>k==='comb'],cab:[/cabina|tapiz|silla|parabrisas|puerta|espejo|acondicionado/,k=>k==='cab'],estr:[/chasis|estructura|soldadura|percha|travesano|larguero/,k=>k==='estr'],eje:[/\beje\b|rodamiento|retenedor|\bcubo/,k=>/^eje:/.test(k)]};
+const GN={llantas:'Llantas',muelles:'Muelles',balan:'Balancines / bujes',frenos:'Frenos',quinta:'Quinta rueda',patas:'Patas de apoyo',hidr:'Sistema hidráulico del volco',carr:'Carrocería',cardan:'Cardán',dif:'Diferenciales',caja:'Caja / embrague',motor:'Motor',rad:'Enfriamiento',dirn:'Dirección',elec:'Sistema eléctrico',aire:'Sistema neumático',comb:'Combustible',cab:'Cabina',estr:'Chasis y estructura',eje:'Ejes y rodamientos'};
+
+function build(d){
+ const inp=d.querySelector('[data-n="partes_intervenidas"]'),rb=d.querySelector('[data-n="resultado"]'),rbox=rb&&rb.closest('div');
+ if(!inp||!rbox)return;
+ const old=d.querySelector('#pt_blk');if(old)old.remove();if(d.__pt){d.removeEventListener('input',d.__pt);d.removeEventListener('change',d.__pt)}
+ const pb=inp.closest('div');if(pb)pb.style.display='none';
+ const blk=document.createElement('div');blk.className='w';blk.id='pt_blk';rbox.parentNode.insertBefore(blk,rbox);
+ const f=n=>d.querySelector('[data-n="'+n+'"]'),ro=!!inp.disabled||(typeof canW==='function'&&!canW());
+ let S=parse(inp.value),st={mode:null,pset:false,partner:'',hk:''};
+ const E=()=>(f('equipo')||{}).value||'';
+ const text=()=>{const nv=(D.Novedades||[]).find(n=>n.id===(f('novedad_id')||{}).value)||{};return norm(['componente','diagnostico','causa','actividades','resultado'].map(n=>(f(n)||{}).value||'').concat([nv.descripcion,nv.componente]).join(' '))};
+ const hints=()=>{const t=text();return Object.keys(GR).filter(g=>GR[g][0].test(t))};
+ const codes=()=>{const e=E(),acts=(D.Acoplamientos||[]).filter(a=>a.tracto&&a.trailer&&!a.fin);let tr='',rl='';
+  if(isT(e)){tr=e;rl=st.pset?st.partner:((acts.find(a=>a.tracto===e)||{}).trailer||'')}else if(isR(e)){rl=e;tr=st.pset?st.partner:((acts.find(a=>a.trailer===e)||{}).tracto||'')}
+  const L=[tr,rl].filter(Boolean);Object.keys(S).forEach(id=>{const c=id.slice(0,id.indexOf(':'));if(c&&!L.includes(c)&&(isT(c)||isR(c)))L.push(c)});
+  return{L,tr,rl,e}};
+ const lab=id=>{const i=id.indexOf(':'),c=id.slice(0,i),k=id.slice(i+1);if(!isT(c)&&!isR(c))return id;const C=cat(c),x=C.P.find(p=>p.k===k)||C.T.find(p=>p.k===k);return x?x.l:k};
+ const hit=(k,H)=>H.some(g=>GR[g][1](k));
+ function svg(c,H){
+  const C=cat(c);let s=`<svg viewBox="0 0 300 ${C.H}" style="width:100%;max-width:300px;background:#fff;border:1px solid #d5e0e7;border-radius:10px" role="img" aria-label="Diagrama de ${esc(c)}">`;
+  s+=C.tr?`<rect x="95" y="8" width="110" height="54" rx="12" fill="#cfdde6"/><rect x="112" y="62" width="76" height="300" rx="6" fill="#e9eff3" stroke="#b7c6d0"/>`:`<rect x="120" y="22" width="60" height="${C.H-50}" rx="6" fill="#e9eff3" stroke="#b7c6d0"/>`;
+  C.AX.forEach(y=>s+=`<line x1="50" y1="${y}" x2="250" y2="${y}" stroke="#78909c" stroke-width="3"/>`);
+  C.T.forEach(t=>{const id=c+':'+t.k,v=S[id],h=hit(t.k,H)&&!v;s+=`<rect data-pk="${esc(id)}" data-pl="${esc(t.l)}" x="${t.x-8}" y="${t.y-15}" width="16" height="30" rx="3" fill="${v?TY[v][1]:'#455a64'}" stroke="${h?'#ef8f00':'#263238'}" stroke-width="${h?2.5:1}"${h?' stroke-dasharray="3 2"':''} style="cursor:pointer"><title>${esc(t.l)}</title></rect>`});
+  C.P.forEach(p=>{
+   if(p.t){s+=`<text x="${p.x}" y="${p.y+3}" text-anchor="${p.mid?'middle':'start'}" font-size="8" fill="#607d8b" pointer-events="none">${esc(p.lb)}</text>`;return}
+   const id=c+':'+p.k,v=S[id],h=hit(p.k,H)&&!v;
+   s+=`<g data-pk="${esc(id)}" data-pl="${esc(p.l)}" style="cursor:pointer"><circle cx="${p.x}" cy="${p.y}" r="9" fill="${v?TY[v][1]:'#fff'}" stroke="${h?'#ef8f00':'#546e7a'}" stroke-width="${h?2.5:1.5}"${h?' stroke-dasharray="3 2"':''}/><text x="${p.x}" y="${p.y+3.5}" text-anchor="middle" font-size="9" font-weight="700" fill="${v?'#fff':'#37474f'}" pointer-events="none">${esc(p.a)}</text><title>${esc(p.l)}</title></g>`;
+   if(p.s)s+=`<text x="${p.side==='l'?p.x-13:p.x+13}" y="${p.y+3}" text-anchor="${p.side==='l'?'end':'start'}" font-size="9" fill="#455a64" pointer-events="none">${esc(p.s)}</text>`});
+  return s+'</svg>'}
+ function draw(){
+  const U=codes(),H=hints(),mode=st.mode||((f('novedad_id')||{}).value?'C':'P');st.hk=H.join(',');
+  if(!U.e){blk.innerHTML='<h4 style="margin:8px 0 4px;color:var(--p)">🔧 Partes intervenidas</h4><small>Seleccione primero el equipo de la orden para ver el diagrama del tractocamión y del tráiler.</small>';return}
+  const isTE=isT(U.e),opts=(isTE?(D.Traileres||[]):(D.Tractocamiones||[])).map(x=>x.codigo),cur=isTE?U.rl:U.tr;
+  const tipos=Object.values(S),n=k=>tipos.filter(x=>x===k).length;
+  const byC=U.L.map(c=>[c,Object.keys(S).filter(id=>id.startsWith(c+':'))]).filter(x=>x[1].length);
+  blk.innerHTML=`<h4 style="margin:8px 0 4px;color:var(--p)">🔧 Partes intervenidas con esta orden (diagrama)</h4>
+<small>${ro?'Partes marcadas en esta orden.':'Elija el tipo de intervención y toque en el diagrama cada parte donde se trabajó. Toque otra vez para quitarla. Las partes con contorno naranja punteado son las que el texto de la orden menciona.'}</small>
+${ro?'':`<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:6px 0">${Object.entries(TY).map(([k,v])=>`<label style="display:inline-flex;gap:4px;align-items:center;padding:3px 9px;border-radius:14px;border:2px solid ${v[1]};background:${mode===k?v[1]:'#fff'};color:${mode===k?'#fff':v[1]};font-weight:700;cursor:pointer"><input type=radio name=pt_t value="${k}" ${mode===k?'checked':''} style="margin:0"> ${v[0]}</label>`).join('')}
+<label style="display:inline-flex;gap:4px;align-items:center">${isTE?'Tráiler acoplado':'Tractocamión acoplado'}: <select data-pp><option value="">— ninguno —</option>${opts.map(o=>`<option ${o===cur?'selected':''}>${esc(o)}</option>`).join('')}</select></label></div>`}
+${H.length?`<div class=wn style="margin:4px 0"><small>🔎 Según el texto de la orden se trabajó en: <b>${H.map(g=>GN[g]).join(', ')}</b>. Marque en el diagrama la posición exacta.</small></div>`:''}
+<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">${U.L.map(c=>`<div style="flex:0 1 310px;min-width:240px"><div style="font-weight:700;margin:2px 0">${isT(c)?'🚛 Tractocamión':'🚚 Tráiler (volco)'} · ${esc(c)}</div>${svg(c,H)}${isR(c)&&!ro?`<div style="margin-top:4px;font-size:12px">Balancines <input type=number min=0 max=8 data-cb="${esc(c)}" value="${nm(cfgG(c).bal,0,8,4)}" style="width:52px"> · Muelles <input type=number min=0 max=8 data-cm="${esc(c)}" value="${nm(cfgG(c).mue,0,8,4)}" style="width:52px"> <small>(numerados de adelante hacia atrás; ajústelos a su tráiler)</small></div>`:''}</div>`).join('')}</div>
+<div id=pt_st style="margin:6px 0;min-height:18px;font-weight:600;color:var(--p)"> </div>
+<div style="background:#fff;border:1px solid #d5e0e7;border-radius:10px;padding:8px"><b>Resumen de partes intervenidas</b> · ${tipos.length?Object.entries(TY).map(([k,v])=>n(k)?`<span style="color:${v[1]};font-weight:700">${v[0]}: ${n(k)}</span>`:'').filter(Boolean).join(' · '):'<small>aún no hay partes marcadas</small>'}
+${byC.map(([c,ids])=>`<div style="margin-top:6px"><b>${isT(c)?'Tractocamión':'Tráiler'} ${esc(c)}</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:3px">${ids.map(id=>{const t=S[id];return`<span style="display:inline-flex;gap:5px;align-items:center;padding:2px 8px;border-radius:12px;background:${TY[t][1]};color:#fff;font-size:12px">${esc(lab(id))} · ${TY[t][0]}${ro?'':`<button type=button data-rm="${esc(id)}" style="all:unset;cursor:pointer;font-weight:700" title="Quitar">✕</button>`}</span>`}).join('')}</div></div>`).join('')}</div>`};
+ const save=()=>{inp.value=ser(S);inp.dispatchEvent(new Event('input',{bubbles:true}))};
+ blk.onclick=e=>{if(ro)return;const rm=e.target.closest('[data-rm]');if(rm){delete S[rm.dataset.rm];save();draw();return}
+  const p=e.target.closest('[data-pk]');if(!p)return;const id=p.dataset.pk,m=st.mode||((f('novedad_id')||{}).value?'C':'P');if(S[id]===m)delete S[id];else S[id]=m;save();draw()};
+ blk.onchange=e=>{const t=e.target;if(t.name==='pt_t'){st.mode=t.value;draw()}else if(t.dataset.pp!=null){st.pset=true;st.partner=t.value;draw()}
+  else if(t.dataset.cb!=null||t.dataset.cm!=null){const c=t.dataset.cb||t.dataset.cm,g=cfgG(c);if(t.dataset.cb!=null)g.bal=nm(t.value,0,8,4);else g.mue=nm(t.value,0,8,4);cfgS(c,g);draw()}};
+ blk.onmouseover=e=>{const p=e.target.closest('[data-pk]'),s=blk.querySelector('#pt_st');if(s)s.textContent=p?(p.dataset.pk.split(':')[0]+' · '+p.dataset.pl+(S[p.dataset.pk]?' — '+TY[S[p.dataset.pk]][0]:'')):' '};
+ d.__pt=e=>{if(e&&e.target&&blk.contains(e.target))return;if(e&&e.target&&e.target.dataset&&e.target.dataset.n==='equipo'){st.pset=false;draw();return}if(hints().join(',')!==st.hk)draw()};
+ d.addEventListener('input',d.__pt);d.addEventListener('change',d.__pt);draw()}
+window.igcPartes=build;
+const _od=window.otDecor;
+window.otDecor=function(d,o){const r=_od?_od.apply(this,arguments):undefined;try{build(d)}catch(e){console.error(e)}return r};
+})();
+</script>
+
 </body></html>
