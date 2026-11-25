@@ -3151,4 +3151,223 @@ window.otDecor=function(d,o){const r=_od?_od.apply(this,arguments):undefined;try
 })();
 </script>
 
+
+<script>
+/* ===== IGC · Llantas: compra con factura electrónica (ZIP/XML de la DIAN) → inventario de cada vehículo =====
+   Se agrega a la pestaña «Nueva compra». Lee la factura con el mismo lector que ya usan las órdenes de trabajo
+   (window.facPdf), reparte cada renglón de llanta por unidad, deja indicar vehículo, puesto y FECHA DE INSTALACIÓN,
+   y al guardar crea: Llantas (inventario) + MovLlantas (compra → bodega → instalación) + Documentos (ZIP adjunto).
+   No cambia el esquema del servidor: usa solo entidades y columnas que ya existen. */
+(()=>{
+const TZ={inv:[],rows:[],iva:'0',pre:'',mm:'',fi:'',eq:'',cmp:false,busy:false};
+const FT=()=>window.facPdf&&window.facPdf._t||null;
+const r2=n=>Math.round((+n||0)*100)/100;
+const money=n=>'$'+Math.round(+n||0).toLocaleString('es-CO');
+const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+const alnum=s=>norm(s).replace(/[^A-Z0-9]/g,'');
+const escRe=s=>String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+const d10=x=>String(x||'').slice(0,10);
+const BR=['Michelin','Bridgestone','Goodyear','Continental','Pirelli','Firestone','Hankook','Dunlop','Double Coin','Doublecoin','Triangle','Aeolus','Linglong','Sailun','Yokohama','Kumho','Maxxis','Westlake','Chaoyang','Roadlux','Techking','Annaite','Hifly','Samson','Windforce','Cooper','Toyo','Falken','Armstrong','GT Radial','Giti','Austone','Boto','Jinyu','Kapsen','Compasal','Supercargo','Greenmax','Xcelink','Long March','Sumitomo','Fate'].sort((a,b)=>b.length-a.length);
+const MED=['295/80R22.5','11R22.5','12R22.5','315/80R22.5','11.00R20','10.00R20','385/65R22.5','275/80R22.5'];
+const SZ=/\b(\d{2,3}\/\d{2}\s?R\s?\d{2}(?:[.,]\d)?|\d{1,2}(?:[.,]\d{2})?\s?R\s?\d{2}(?:[.,]\d)?)(?!\d)/i;
+const NOT_TIRE=/^\s*(SERVICIO|MANO DE OBRA|MONTAJE|DESMONT|BALANCE|ALINEA|REPARACI|V[AÁ]LVULA|PROTECTOR|C[AÁ]MARA|FLAP|PARCHE|RIN\b|ARO\b)/i;
+const isTire=d=>{const s=String(d||'');if(NOT_TIRE.test(norm(s)))return false;return /LLANTA|NEUMATIC|CAUCHO/.test(norm(s))||SZ.test(s)};
+const normSz=s=>String(s||'').replace(/\s+/g,'').replace(',','.').toUpperCase();
+const brandOf=d=>{const n=norm(d);return BR.find(b=>n.includes(norm(b)))||''};
+const modelOf=(d,marca,sz)=>{let s=norm(d);if(marca)s=s.replace(new RegExp(escRe(norm(marca)),'g'),' ');if(sz)s=s.replace(norm(sz),' ');
+ return s.replace(/\b\d{1,2}\s?(PR|PLY)\b/g,' ').replace(/\b(LLANTAS?|NEUMATICOS?|RADIAL(ES)?|DE|PARA|CAMION|TRACTOCAMION|TRACTOMULA|SIN|CAMARA|TUBELESS|TL|TT|NUEVA|NUEVO|CON|Y|EL|LA|PR|PLY|REF|REFERENCIA)\b/g,' ').replace(/[^A-Z0-9\- ]/g,' ').replace(/\s+/g,' ').trim().slice(0,40)};
+const fleet=()=>{const m=new Map();(typeof eqs==='function'?eqs():[]).forEach(e=>{[e.codigo,e.placa].forEach(k=>{const a=alnum(k);if(a.length>=5)m.set(a,e.codigo)})});return m};
+const detEq=txt=>{const a=alnum(txt),F=fleet(),out=new Set();F.forEach((c,k)=>{if(a.includes(k))out.add(c)});return[...out]};
+const occ=(eq,p)=>(D.Llantas||[]).find(l=>l.estado==='Instalada'&&l.equipo===eq&&l.posicion===p);
+const freePos=(eq,skip)=>{const taken=new Set(TZ.rows.filter(x=>x!==skip&&x.eq&&x.pos).map(x=>x.eq+'|'+x.pos));return allPos(eq).find(p=>!taken.has(eq+'|'+p)&&!occ(eq,p))||''};
+const instOf=l=>{if(!l||l.estado!=='Instalada')return'';const dst=l.equipo+'/'+l.posicion;let f='';(D.MovLlantas||[]).forEach(m=>{if(m.llanta===l.codigo&&m.destino===dst){const x=d10(m.fecha);if(x>=f)f=x}});return f};
+const zipOf=l=>{const n=String(l&&l.factura||'').trim();if(!n)return null;const p=norm(l.proveedor||'');return(D.Documentos||[]).find(x=>x.clasificacion==='Llantas'&&String(x.nombre||'').indexOf('Factura '+n+' · ')===0&&(!p||norm(x.nombre).includes(p)))||null};
+const zipLink=(ref,t)=>{ref=String(ref||'');if(!ref)return'';t=t||'📎 ZIP';return/^https?:/.test(ref)?`<a class=lk href="${esc(ref)}" target=_blank rel=noopener>${t}</a>`:`<a class=lk data-tzz="${esc(ref)}">${t}</a>`};
+const dupInfo=v=>(D.Llantas||[]).filter(l=>String(l.factura||'').trim()===v.n&&(!v.p||!l.proveedor||norm(l.proveedor)===norm(v.p)));
+
+document.head.insertAdjacentHTML('beforeend','<style>.tzb{margin:0 0 14px;padding:12px 14px;border:2px dashed var(--a);border-radius:14px;background:#fffdf8}.tzb h4,.tzh{margin:4px 0 8px;color:var(--p)}.tzi{background:#fff;border-radius:12px;box-shadow:var(--sh);padding:10px 12px;margin:10px 0}.tzih{font-size:14px;margin-bottom:4px}.tzt input,.tzt select{padding:5px 6px;font-size:12.5px}.tzt td{vertical-align:top}.tzc{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 12px;margin:10px 0;align-items:end}.tzc label{font-size:12px;color:#4a5560;display:block}.tzc .row{display:flex;gap:6px}.tzc .row button{white-space:nowrap}.tzsum{margin:8px 0;padding:6px 10px;background:#eef3f7;border-radius:8px;font-size:13px}.tzb small{color:#4a5560}</style>');
+
+/* ---------- guardar el ZIP: Drive → hoja Evidencias (≤1,5 MB) → solo este equipo ---------- */
+const b64Of=b=>new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]||'');r.onerror=()=>ko(r.error||new Error('no se pudo leer el archivo'));r.readAsDataURL(b)});
+async function guardarZip(f){const nom=f.name||'factura.zip',mime=f.type||(/\.xml$/i.test(nom)?'text/xml':'application/zip');
+ if(f.size>50*1024*1024)throw new Error('«'+nom+'» supera el límite de 50 MB');
+ let why='';
+ if(!OFF){try{let u;if(f.size>20e6&&typeof subirPartes==='function')u=await subirPartes(f,nom,mime);else{const r=await call('subir','Novedades',{nombre:nom,mime,data:await b64Of(f)});u=typeof r==='string'?r:r&&(r.url||r.link)}
+  if(u&&/^https?:/.test(u))return{ref:u,nube:true}}catch(e){why=String(e&&e.message||e)}}
+ let id=null;try{if(typeof idbPut==='function')id=await idbPut(f,nom)}catch(e){}
+ id=id||('z'+Date.now().toString(36)+Math.random().toString(36).slice(2,7));
+ let nube=false;
+ if(!OFF&&f.size<=1.5e6){try{const b=await b64Of(f),P=[];for(let i=0;i<b.length;i+=40000)P.push(b.slice(i,i+40000));
+  for(let j=1;j<P.length;j++)await call0('save','Evidencias',{ref:id+'~'+j,nombre:nom,mime,data:'x'+P[j]});
+  await call0('save','Evidencias',{ref:id,nombre:nom,mime:mime+';n='+P.length,data:'x'+P[0]});nube=true}catch(e){why=why||String(e&&e.message||e)}}
+ return{ref:'idb:'+id+'#'+encodeURIComponent(nom),nube,why}}
+async function abrirRef(ref){ref=String(ref||'');if(/^https?:/.test(ref)){window.open(ref,'_blank','noopener');return}
+ const m=/^idb:([^#]+)#?(.*)$/.exec(ref);if(!m)throw new Error('referencia de archivo no válida');
+ let r=null;try{r=typeof idbGet==='function'?await idbGet(m[1]):await window.evFetch(m[1])}catch(e){}
+ if(!r||!r.blob)throw new Error('El archivo no está en este equipo ni en la nube. Ábralo desde el equipo donde se cargó.');
+ const a=document.createElement('a');a.href=URL.createObjectURL(r.blob);a.download=r.name||decodeURIComponent(m[2]||'')||'factura.zip';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest('[data-tzz]');if(!a)return;e.preventDefault();abrirRef(a.dataset.tzz).catch(x=>msg(String(x&&x.message||x),1))});
+
+/* ---------- lectura de la factura ---------- */
+async function leer(files){const T=FT(),warn=[];if(!T){msg('No se cargó el lector de facturas electrónicas',1);return warn}
+ for(const f of files){
+  try{const roots=[],buf=await f.arrayBuffer(),bad=d=>d.getElementsByTagName('parsererror').length>0;
+   if(/\.xml$/i.test(f.name)){const x=T.X(new TextDecoder('utf-8').decode(buf));if(!bad(x))T.findDocs(x,roots)}
+   else for(const e of await T.unzip(buf)){const x=T.X(new TextDecoder('utf-8').decode(e.raw));if(!bad(x))T.findDocs(x,roots)}
+   if(!roots.length){warn.push('«'+f.name+'»: no encontré una factura electrónica (XML) dentro del archivo.');continue}
+   roots.forEach(root=>{const v=T.parseUBL(root);
+    if(!v.n){warn.push('Una factura de «'+f.name+'» no trae número; no se cargó.');return}
+    if(v.nc){warn.push('La '+v.n+' es una nota crédito: no se registran llantas con ella.');return}
+    if(TZ.inv.some(x=>x.n===v.n&&(x.nit||'')===(v.nit||''))){warn.push('La factura '+v.n+' ya está cargada en esta pantalla.');return}
+    if(v.nit&&typeof MYNIT!=='undefined'&&v.nit.replace(/\D/g,'').indexOf(MYNIT)===0)warn.push('La factura '+v.n+' parece emitida por Transporte IGC (el NIT del proveedor es el suyo); revise el archivo.');
+    v.file=f;v.fc=/^\d{4}-\d{2}-\d{2}$/.test(v.fecha||'')?v.fecha:today();
+    v.notes=[...root.getElementsByTagNameNS('*','Note')].map(x=>x.textContent||'').join(' ');
+    v.L.forEach(l=>{l.on=isTire(l.d)});
+    if(!v.L.some(l=>l.on))warn.push('Factura '+v.n+': no identifiqué renglones de llantas; marque en el detalle los que correspondan.');
+    TZ.inv.push(v)})}
+  catch(e){console.error(e);warn.push('«'+f.name+'»: '+(e&&e.message||e))}}
+ return warn}
+
+function newRow(v,vi,l,li,u,key){const m=SZ.exec(l.d||''),marca=brandOf(l.d),net=l.q?l.t/l.q:(l.u||0),ivu=l.q?(l.iva||0)/l.q:0;
+ const dl=detEq(l.d),dn=dl.length?dl:detEq(v.notes),eq=dn.length===1?dn[0]:'';
+ const r={key,vi,li,cod:'',marca,modelo:modelOf(l.d,marca,m&&m[1]),medida:m?normSz(m[1]):'',dot:'',net:r2(net),ivu:r2(ivu),cm:false,costo:'',eq,det:!!eq,pos:'',fi:eq?v.fc:'',km:'',mm:TZ.mm||''};
+ r.costo=r2(r.net+(TZ.iva==='1'?r.ivu:0));return r}
+function rebuild(){const old=new Map(TZ.rows.map(r=>[r.key,r])),out=[];
+ TZ.inv.forEach((v,vi)=>v.L.forEach((l,li)=>{if(!l.on)return;const q=Math.min(200,Math.max(0,Math.round(l.q)));
+  for(let u=0;u<q;u++){const key=v.n+'|'+(v.nit||'')+'|'+li+'|'+u,o=old.get(key);if(o){o.vi=vi;out.push(o)}else out.push(newRow(v,vi,l,li,u,key))}}));
+ TZ.rows=out;out.forEach(r=>{if(r.det&&r.eq&&!r.pos)r.pos=freePos(r.eq,r)})}
+
+/* ---------- pantalla ---------- */
+const eqOpts=sel=>'<option value="">Bodega (sin instalar)</option>'+eqs().map(e=>`<option value="${esc(e.codigo)}" ${e.codigo===sel?'selected':''}>${esc(e.codigo)}${e.placa&&e.placa!==e.codigo?' · '+esc(e.placa):''}</option>`).join('');
+const posOpts=r=>{if(!r.eq)return'<option value="">—</option>';return'<option value="">— elegir —</option>'+allPos(r.eq).map(p=>{const o=occ(r.eq,p),x=TZ.rows.find(y=>y!==r&&y.eq===r.eq&&y.pos===p);return`<option value="${esc(p)}" ${p===r.pos?'selected':''}>${esc(p)}${o?' (ocupada: '+esc(o.codigo)+')':''}${x?' (asignada a otra llanta de esta compra)':''}</option>`}).join('')};
+const rowHtml=(r,i)=>`<tr data-k="${esc(r.key)}"><td>${i+1}${r.det?' <span class="chip g" title="Vehículo detectado en la factura">auto</span>':''}
+<td><input data-f=cod value="${esc(r.cod)}" style="width:130px" placeholder="Ej. LL-001">
+<td><input data-f=marca list=tz_mar value="${esc(r.marca)}" style="width:112px">
+<td><input data-f=modelo value="${esc(r.modelo)}" style="width:130px">
+<td><input data-f=medida list=tz_med value="${esc(r.medida)}" style="width:112px">
+<td><input data-f=dot value="${esc(r.dot)}" style="width:76px" placeholder="sem/año">
+<td><input data-f=costo type=number value="${esc(r.costo)}" style="width:110px">
+<td><select data-f=eq style="width:160px">${eqOpts(r.eq)}</select>
+<td><select data-f=pos style="width:190px" ${r.eq?'':'disabled'}>${posOpts(r)}</select>
+<td><input data-f=fi type=date value="${esc(r.fi)}" style="width:140px" ${r.eq?'':'disabled'}>
+<td><input data-f=km type=number value="${esc(r.km)}" style="width:100px" ${r.eq?'':'disabled'}>
+<td><input data-f=mm type=number step=0.1 value="${esc(r.mm)}" style="width:80px">`;
+function sum(){const s=$('#tzSum');if(!s)return;const n=TZ.rows.length,ins=TZ.rows.filter(r=>r.eq).length,tot=TZ.rows.reduce((a,r)=>a+(+r.costo||0),0),sk=TZ.rows.filter(r=>r.eq&&r.km==='').length;
+ s.innerHTML=n?`📊 <b>${n}</b> llanta(s) por registrar · <b>${ins}</b> se instalan en vehículos · <b>${n-ins}</b> van a bodega · Costo total <b>${money(tot)}</b>${sk?` · <span style="color:#8a6100">${sk} sin km del equipo (sin km no se calcula el rendimiento por km)</span>`:''}`:''}
+function drawRows(){const box=$('#tzRows');if(!box)return;
+ box.innerHTML=TZ.rows.length?`<div class=tw><table class=tzt><tr><th>#<th>Código / serie interno *<th>Marca *<th>Modelo<th>Medida *<th>DOT<th>Costo ($) *<th>Vehículo (destino)<th>Puesto<th>Fecha de instalación<th>km del equipo<th>Prof. inicial (mm) *</tr>${TZ.rows.map(rowHtml).join('')}</table></div>`:'<div class=wn>No hay renglones marcados como llanta. Marque los que correspondan en el detalle de la factura.</div>';sum()}
+function drawInv(){const o=$('#tzInv');if(!o)return;
+ o.innerHTML=TZ.inv.map((v,vi)=>{const dup=dupInfo(v);
+  return`<div class=tzi><div class=tzih>🧾 <b>${esc(v.n)}</b> · ${esc(v.p||'Proveedor sin nombre')}${v.nit?' · NIT '+esc(v.nit):''} · Total factura <b>${money(v.tot)}</b> <button type=button class=s data-rmi="${vi}" style="padding:2px 8px;font-size:12px">✕ quitar</button> <small>📎 ${esc(v.file.name)}</small></div>
+  ${dup.length?`<div class=wn>⚠ Esta factura ya tiene ${dup.length} llanta(s) en el inventario (${dup.slice(0,6).map(x=>esc(x.codigo)).join(', ')}${dup.length>6?'…':''}). Si la guarda otra vez se duplicarán.</div>`:''}
+  <div class=fg style="max-width:520px"><div><label>Fecha de la factura</label><input type=date value="${esc(v.fecha||'')}" disabled></div><div><label>Fecha de compra *</label><input type=date data-vf="${vi}" value="${esc(v.fc)}"></div></div>
+  <details ${v.L.some(l=>l.on)?'':'open'}><summary><b>Renglones de la factura (${v.L.length})</b> · marque los que son llantas</summary>${TB(['¿Llanta?','Descripción','Cant.','Valor unit.','Total'],v.L.map((l,li)=>[`<input type=checkbox data-ln="${vi}:${li}" ${l.on?'checked':''} style="width:auto">`,esc(l.d||l.r),l.q,money(l.u),money(l.t)]))}</details></div>`}).join('')}
+function drawAll(){const o=$('#tzOut');if(!o)return;
+ if(!TZ.inv.length){o.innerHTML='';return}
+ o.innerHTML=`<div id=tzInv></div>
+ <div class=tzc>
+  <div><label>Costo de cada llanta</label><select id=tzIva><option value=0 ${TZ.iva==='0'?'selected':''}>Sin IVA (valor neto del renglón)</option><option value=1 ${TZ.iva==='1'?'selected':''}>Con IVA incluido</option></select></div>
+  <div><label>Prefijo del código interno</label><div class=row><input id=tzPre placeholder="Ej. LL-" value="${esc(TZ.pre)}"><button type=button class=s id=tzNum>Autonumerar</button></div></div>
+  <div><label>Profundidad inicial (mm)</label><div class=row><input id=tzMm type=number step=0.1 value="${esc(TZ.mm)}"><button type=button class=s id=tzMmB>A todas</button></div></div>
+  <div><label>Vehículo (para las que no tienen)</label><div class=row><select id=tzEq style="min-width:0">${eqOpts(TZ.eq)}</select><button type=button class=s id=tzEqB>Asignar y ubicar</button></div></div>
+  <div><label>Fecha de instalación (las que se instalan)</label><div class=row><input id=tzFi type=date value="${esc(TZ.fi)}"><button type=button class=s id=tzFiB>Aplicar</button></div></div>
+ </div>
+ <div id=tzRows></div><div class=tzsum id=tzSum></div><div id=tzErr></div>
+ <div class=w style="margin:6px 0"><label style="font-size:13px"><input id=tzCmp type=checkbox style="width:auto" ${TZ.cmp?'checked':''}> Registrar también en «Compras»</label><br><small>Déjelo sin marcar: el costo de la llanta ya se suma al presupuesto en «Llantas (compras)». Marcarlo lo contaría una segunda vez como compra de inventario.</small></div>
+ <div class=bar style="margin-top:8px"><button type=button id=tzSave>✔ Guardar y cargar al inventario</button><button type=button class=s id=tzClr>Cancelar</button></div>`;
+ drawInv();drawRows();wire()}
+
+function wire(){
+ $('#tzInv').onclick=e=>{const b=e.target.closest('[data-rmi]');if(!b)return;const i=+b.dataset.rmi;if(!confirm('¿Quitar la factura '+TZ.inv[i].n+' de esta carga?'))return;TZ.inv.splice(i,1);rebuild();TZ.inv.length?(drawInv(),drawRows()):drawAll()};
+ $('#tzInv').onchange=e=>{const t=e.target;
+  if(t.dataset.ln!=null){const[vi,li]=t.dataset.ln.split(':').map(Number);TZ.inv[vi].L[li].on=t.checked;rebuild();drawRows()}
+  else if(t.dataset.vf!=null){const v=TZ.inv[+t.dataset.vf];v.fc=t.value}};
+ $('#tzRows').oninput=e=>{const t=e.target,f=t.dataset.f,k=t.closest('tr')&&t.closest('tr').dataset.k,r=TZ.rows.find(x=>x.key===k);if(!r||!f||t.tagName==='SELECT')return;r[f]=t.value;if(f==='costo')r.cm=true;sum()};
+ $('#tzRows').onchange=e=>{const t=e.target,f=t.dataset.f,k=t.closest('tr')&&t.closest('tr').dataset.k,r=TZ.rows.find(x=>x.key===k);if(!r||t.tagName!=='SELECT')return;
+  if(f==='eq'){r.eq=t.value;r.det=false;r.pos=r.eq?freePos(r.eq,r):'';if(r.eq&&!r.fi)r.fi=TZ.inv[r.vi].fc||'';if(!r.eq){r.fi='';r.km=''}}
+  else if(f==='pos')r.pos=t.value;
+  drawRows()};
+ $('#tzIva').onchange=e=>{TZ.iva=e.target.value;TZ.rows.forEach(r=>{if(!r.cm)r.costo=r2(r.net+(TZ.iva==='1'?r.ivu:0))});drawRows()};
+ $('#tzPre').oninput=e=>{TZ.pre=e.target.value};$('#tzMm').oninput=e=>{TZ.mm=e.target.value};$('#tzFi').oninput=e=>{TZ.fi=e.target.value};$('#tzEq').onchange=e=>{TZ.eq=e.target.value};$('#tzCmp').onchange=e=>{TZ.cmp=e.target.checked};
+ $('#tzNum').onclick=()=>{const pre=(TZ.pre||'').trim();if(!pre)return msg('Escriba un prefijo para el código interno, por ejemplo LL-',1);
+  const re=new RegExp('^'+escRe(pre)+'(\\d+)$');let max=0;(D.Llantas||[]).forEach(l=>{const m=re.exec(l.codigo||'');if(m)max=Math.max(max,+m[1])});TZ.rows.forEach(r=>{const m=re.exec(r.cod||'');if(m)max=Math.max(max,+m[1])});
+  const w=Math.max(3,String(max+TZ.rows.length).length);TZ.rows.forEach(r=>{if(!String(r.cod||'').trim()){max++;r.cod=pre+String(max).padStart(w,'0')}});drawRows()};
+ $('#tzMmB').onclick=()=>{if(TZ.mm==='')return msg('Escriba la profundidad inicial en mm',1);TZ.rows.forEach(r=>r.mm=TZ.mm);drawRows()};
+ $('#tzEqB').onclick=()=>{if(!TZ.eq)return msg('Elija el vehículo',1);TZ.rows.forEach(r=>{if(!r.eq){r.eq=TZ.eq;r.det=false;r.fi=r.fi||TZ.inv[r.vi].fc||''}});TZ.rows.forEach(r=>{if(r.eq&&!r.pos)r.pos=freePos(r.eq,r)});drawRows()};
+ $('#tzFiB').onclick=()=>{if(!TZ.fi)return msg('Elija la fecha de instalación',1);TZ.rows.forEach(r=>{if(r.eq)r.fi=TZ.fi});drawRows()};
+ $('#tzClr').onclick=()=>{if(TZ.rows.some(r=>r.cod||r.eq)&&!confirm('Se descartará lo cargado en esta pantalla. ¿Continuar?'))return;TZ.inv=[];TZ.rows=[];drawAll()};
+ $('#tzSave').onclick=()=>save()}
+
+/* ---------- guardar ---------- */
+async function save(){if(TZ.busy)return;if(!canW())return msg('Su rol no permite registrar compras de llantas',1);
+ const R=TZ.rows,E=[],codes=new Set(),slots=new Set();
+ if(!R.length)return msg('No hay llantas por registrar: marque al menos un renglón como llanta',1);
+ R.forEach((r,i)=>{const n='Llanta '+(i+1),inv=TZ.inv[r.vi],cod=String(r.cod||'').trim();
+  if(!cod)E.push(n+': falta el código / serie interno (use «Autonumerar» o escríbalo)');
+  else{if(codes.has(cod.toLowerCase()))E.push(n+': el código '+cod+' está repetido en esta compra');codes.add(cod.toLowerCase());if((D.Llantas||[]).some(l=>l.codigo===cod))E.push(n+': ya existe una llanta con el código '+cod)}
+  if(!String(r.marca||'').trim())E.push(n+': falta la marca');if(!String(r.medida||'').trim())E.push(n+': falta la medida');
+  if(r.costo===''||isNaN(+r.costo)||+r.costo<0)E.push(n+': falta el costo');if(r.mm===''||isNaN(+r.mm))E.push(n+': falta la profundidad inicial (mm)');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(inv.fc||''))E.push('Factura '+inv.n+': falta la fecha de compra');
+  if(r.eq){if(!r.pos)E.push(n+': elija el puesto en '+r.eq);else{const k=r.eq+'|'+r.pos;if(slots.has(k))E.push(n+': el puesto '+r.pos+' de '+r.eq+' está asignado a dos llantas');slots.add(k)}
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(r.fi||''))E.push(n+': falta la fecha de instalación');else if(inv.fc&&r.fi<inv.fc)E.push(n+': la fecha de instalación ('+fmtD(r.fi)+') es anterior a la de compra ('+fmtD(inv.fc)+')')}});
+ const eo=$('#tzErr');if(eo)eo.innerHTML=E.map(x=>`<div class=wn>⚠ ${esc(x)}</div>`).join('');
+ if(E.length)return msg(E[0]+(E.length>1?' (y '+(E.length-1)+' más, vea el aviso en pantalla)':''),1);
+ const dups=TZ.inv.filter((v,vi)=>R.some(r=>r.vi===vi)&&dupInfo(v).length);
+ if(dups.length&&!confirm('La factura '+dups.map(v=>v.n).join(', ')+' ya tiene llantas registradas en el inventario. ¿Registrar estas llantas de todas formas (se duplicarán)?'))return;
+ const rep=R.filter(r=>r.eq&&occ(r.eq,r.pos));
+ if(rep.length&&!confirm('Estos puestos están ocupados y esas llantas pasarán a Bodega:\n\n'+rep.map(r=>'• '+r.eq+' / '+r.pos+' (sale '+occ(r.eq,r.pos).codigo+', entra '+r.cod.trim()+')').join('\n')+'\n\n¿Continuar?'))return;
+ TZ.busy=true;const b=$('#tzSave');if(b)b.disabled=true;let done=0,warn='';
+ try{
+  for(const r of R){const inv=TZ.inv[r.vi],cod=r.cod.trim(),prov=inv.p||'',old=r.eq&&occ(r.eq,r.pos);msg('Guardando llanta '+(++done)+' de '+R.length+'…');
+   if(old){await call('save','Llantas',{id:old.id,estado:'Bodega',equipo:'',posicion:''});await call('save','MovLlantas',{llanta:old.codigo,fecha:r.fi,origen:r.eq+'/'+r.pos,destino:'Bodega',km:r.km,prof:old.prof_actual,motivo:'[Retiro por reemplazo] se instala '+cod,responsable:U.u})}
+   await call('save','Llantas',{codigo:cod,marca:r.marca.trim(),modelo:String(r.modelo||'').trim(),medida:r.medida.trim(),dot:String(r.dot||'').trim(),fecha_compra:inv.fc,proveedor:prov,factura:inv.n,costo:String(r.costo),prof_inicial:String(r.mm),km_inicial:r.eq?String(r.km):'',estado:r.eq?'Instalada':'Bodega',equipo:r.eq||'',posicion:r.eq?r.pos:'',prof_actual:String(r.mm),presion:'',reencauches:'0'});
+   await call('save','MovLlantas',{llanta:cod,fecha:inv.fc,origen:'Compra'+(prov?' · '+prov:''),destino:'Bodega',km:'',prof:String(r.mm),motivo:'[Compra nueva] Factura '+inv.n+' (factura electrónica)',responsable:U.u});
+   if(r.eq)await call('save','MovLlantas',{llanta:cod,fecha:r.fi,origen:'Bodega',destino:r.eq+'/'+r.pos,km:String(r.km),prof:String(r.mm),motivo:'[Instalación desde bodega] llanta nueva, factura '+inv.n,responsable:U.u})}
+  if(TZ.cmp){const G=new Map();R.forEach(r=>{const k=r.vi+':'+r.li;(G.get(k)||G.set(k,[]).get(k)).push(r)});
+   for(const[k,rs]of G){const inv=TZ.inv[rs[0].vi],l=inv.L[rs[0].li];await call('save','Compras',{fecha:inv.fc,proveedor:inv.p||'',item:('Llanta '+(l.d||'')).slice(0,110)+' · factura '+inv.n,cantidad:String(rs.length),valor:String(r2(rs.reduce((a,x)=>a+(+x.costo||0),0)/rs.length)),iva:'',entrega:inv.fc,garantia:'',factura:inv.n,estado:'Recibida',ot:''})}}
+  /* ZIP adjunto: una subida por archivo y un registro en Documentos por vehículo (así aparece en su hoja de vida) */
+  const refs=new Map();let nZ=0;
+  for(const inv of TZ.inv){if(!R.some(r=>TZ.inv[r.vi]===inv))continue;
+   if(!refs.has(inv.file)){msg('Adjuntando «'+inv.file.name+'»…');try{refs.set(inv.file,await guardarZip(inv.file))}catch(e){refs.set(inv.file,{err:String(e&&e.message||e)})}}
+   const z=refs.get(inv.file);if(z.err){warn='No se pudo adjuntar el archivo: '+z.err;continue}
+   if(!z.nube)warn='El ZIP quedó guardado solo en este equipo (no se pudo subir a la nube'+(z.why?': '+z.why:'')+').';
+   await load('Documentos').catch(()=>{});
+   const rs=R.filter(r=>TZ.inv[r.vi]===inv),nom='Factura '+inv.n+' · '+(inv.p||'proveedor');
+   for(const q of[...new Set(rs.map(r=>r.eq||'Bodega'))]){if((D.Documentos||[]).some(x=>x.nombre===nom&&x.equipo===q))continue;
+    await call('save','Documentos',{equipo:q,tipo:'Factura',clasificacion:'Llantas',nombre:nom,url_drive:z.ref,fecha:inv.fc});nZ++}}
+  const ins=R.filter(r=>r.eq).length,nums=[...new Set(R.map(r=>TZ.inv[r.vi].n))].join(', ');
+  await Promise.all(['Llantas','MovLlantas','Compras','Documentos'].map(e=>load(e).catch(()=>{})));
+  TZ.inv=[];TZ.rows=[];TZ.mm='';TZ.fi='';TZ.eq='';
+  msg(`✔ ${R.length} llanta(s) de la factura ${nums} cargadas al inventario (${ins} instaladas en vehículos, ${R.length-ins} en bodega)${nZ?' · ZIP adjunto':''}${warn?' · ⚠ '+warn:''}`,!!warn);
+  await tires($('#main'),'inv')}
+ catch(e){msg('Error al guardar: '+(e&&e.message||e)+(done?' · Se alcanzaron a guardar '+(done-1)+' llanta(s); revise el inventario antes de repetir.':''),1)}
+ finally{TZ.busy=false;const b2=$('#tzSave');if(b2)b2.disabled=false}}
+
+/* ---------- montaje en «Nueva compra» ---------- */
+const _bv=window.buyView;
+window.buyView=function(b){const r=_bv.apply(this,arguments);try{mount(b)}catch(e){console.error(e)}return r};
+function mount(b){if(!b)return;const can=canW();
+ b.insertAdjacentHTML('afterbegin',`<div id=tzBox class=tzb><h4>📦 Cargar factura electrónica de llantas (ZIP o XML de la DIAN)</h4>
+  <p style="margin:4px 0"><small>Suba el ZIP que le envía el proveedor. Se leen N.º de factura, proveedor, NIT, fecha y los renglones de llantas (cada unidad queda como una llanta). Usted indica el <b>vehículo</b>, el <b>puesto</b> y la <b>fecha de instalación</b>; al guardar, las llantas quedan en el inventario de cada vehículo con su historial (compra → bodega → instalación) y el ZIP queda adjunto a la compra. Puede elegir varios ZIP a la vez.</small></p>
+  ${can?`<input type=file id=tzFile accept=".zip,.xml,application/zip,application/x-zip-compressed,text/xml" multiple hidden><button type=button id=tzPick>📦 Cargar ZIP de la factura</button> <span id=tzSt class=lgd></span>`:'<div class=wn>Su rol no permite registrar compras de llantas.</div>'}
+  <datalist id=tz_mar>${BR.map(x=>`<option value="${esc(x)}">`).join('')}</datalist><datalist id=tz_med>${MED.map(x=>`<option value="${x}">`).join('')}</datalist>
+  <div id=tzNt></div><div id=tzOut></div></div><h4 class=tzh style="margin-top:16px">✍️ Registro manual (una llanta, sin factura electrónica)</h4>`);
+ if(can){const fi=$('#tzFile'),st=$('#tzSt');$('#tzPick').onclick=()=>fi.click();
+  fi.onchange=async()=>{const fs=[...fi.files];fi.value='';if(!fs.length)return;st.textContent='⏳ Leyendo '+fs.length+' archivo(s)…';
+   const w=await leer(fs);st.textContent='';$('#tzNt').innerHTML=w.map(x=>`<div class=wn>⚠ ${esc(x)}</div>`).join('');
+   if(!TZ.inv.length)return msg('No se cargó ninguna factura',1);rebuild();drawAll();
+   const n=TZ.rows.length;msg(n?n+' llanta(s) detectada(s) en la factura. Complete código, vehículo, puesto y fecha de instalación y pulse Guardar.':'Factura leída: marque los renglones que son llantas.',!n)}}
+ drawAll()}
+
+/* ---------- inventario y hoja de vida: fecha de instalación y ZIP de la factura ---------- */
+XT.Llantas={h:'Estado · instalación · factura',f:r=>{const f=instOf(r),z=zipOf(r);
+ return esc(r.estado||'—')+(r.estado==='Instalada'&&r.equipo?' · '+esc(r.equipo+' / '+r.posicion):'')+(f?' · desde '+fmtD(f):'')+(z?' · '+zipLink(z.url_drive):'')}};
+const _ti=window.tireInfo;
+window.tireInfo=function(code){const r=_ti.apply(this,arguments);try{const l=(D.Llantas||[]).find(x=>x.codigo===code),d=$('#dlg'),p=d&&d.querySelector('p');
+ if(l&&p){const f=instOf(l),z=zipOf(l);p.insertAdjacentHTML('afterend',`<p>Compra: <b>${fmtD(d10(l.fecha_compra))||'—'}</b>${l.factura?' · Factura '+esc(l.factura):''} · Instalación: <b>${l.estado==='Instalada'?(f?fmtD(f):'sin registro'):'—'}</b>${l.estado==='Instalada'?' en '+esc(l.equipo)+' / '+esc(l.posicion):''}${z?' · '+zipLink(z.url_drive,'📎 Factura (ZIP)'):''}</p>`)}}catch(e){console.error(e)}return r};
+const _tires=window.tires;
+window.tires=async function(){try{await load('Documentos')}catch(e){}return _tires.apply(this,arguments)};
+})();
+</script>
+
 </body></html>
