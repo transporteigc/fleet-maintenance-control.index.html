@@ -2825,7 +2825,7 @@ window.histOil=function(box){const Tc=D.Tractocamiones.map(t=>t.codigo),W=window
 
 /* ================= MOTOR DEL PLAN ANUAL: protocolo → fechas → ejecutado automático (OT + servicios) ================= */
 const STOP=new Set(['revisar','cambio','inspeccion','verificar','general','sistema','cada','mantenimiento','control','revision','ajuste','limpieza','estado']);
-const KIND=a=>{a=norm(a);return /valvulina/.test(a)?'valvulina':/filtro (de )?aire/.test(a)?'aire':/engrase/.test(a)?'engrase':/aceite/.test(a)&&/diferencial/.test(a)?'engrase':/aceite/.test(a)?'aceite':'otro'};
+const KIND=a=>{a=norm(a);return /lavado/.test(a)?'lavado':/valvulina/.test(a)?'valvulina':/filtro (de )?aire/.test(a)?'aire':/engrase/.test(a)?'engrase':/aceite/.test(a)&&/diferencial/.test(a)?'engrase':/aceite/.test(a)?'aceite':'otro'};
 function pairsMap(){const mp={},add=(a,b)=>{(mp[a]=mp[a]||new Set()).add(b);(mp[b]=mp[b]||new Set()).add(a)};
  let pr=(D.Acoplamientos||[]).filter(a=>a.tracto&&a.trailer&&!a.fin).map(a=>[a.tracto,a.trailer]);
  if(!pr.length){try{pr=Object.keys(SEED.eng||{}).map(k=>k.split('-'))}catch(e){pr=[]}}
@@ -2838,6 +2838,7 @@ function execs(){const out=[];
   out.push({src:'SV',key:'SV:'+(s.id||s.equipo+f+s.tipo),id:s.id||'',eq:s.equipo,f,text:norm(s.tipo),tipo:s.tipo||'',aire:s.f_aire==='Si',r:inf.r,m:inf.m})});
  return out}
 function matcher(p){const a=norm(p.actividad),k=KIND(p.actividad);
+ if(k==='lavado'){const cab=/cabezote|tracto|cabina/.test(a),tra=/trailer|volco|semirremolque/.test(a);return e=>e.src==='OT'&&/lavado/.test(e.text)&&(cab?/cabezote|general/.test(e.text):tra?/trailer|volco|semirremolque|general/.test(e.text):true)}
  if(k==='engrase')return e=>e.src==='OT'&&/engrase/.test(e.text);
  if(k==='valvulina'){const part=/caja|transmision/.test(a)?'caja':/delantero/.test(a)?'delantero':/trasero/.test(a)?'trasero':'';return e=>/valvulina/.test(e.text)&&(!part||e.text.includes(part)||!/caja|transmision|delantero|trasero/.test(e.text))}
  if(k==='aire')return e=>e.src==='SV'?e.aire:/filtro (de )?aire/.test(e.text);
@@ -2853,7 +2854,7 @@ function planAnual(Y){const t=today(),cy=+t.slice(0,4),y0=Y+'-01-01',y1=Y+'-12-3
  const EX=execs(),pm=pairsMap();let G=null;const gen=()=>G||(G=(window.ppGen?window.ppGen():{occ:[]}));
  const series=[];
  planRows().forEach(p=>{const eq=p.equipo,n=+p.intervalo,u=p.unidad,k=KIND(p.actividad),mt=matcher(p);
-  let cand=EX.filter(e=>(e.eq===eq||(k==='engrase'&&pm[eq]&&pm[eq].has(e.eq)))&&mt(e));
+  let cand=EX.filter(e=>(e.eq===eq||((k==='engrase'||k==='lavado')&&pm[eq]&&pm[eq].has(e.eq)))&&mt(e));
   const ul=d10(p.ultima_fecha);if(OKD.test(ul)&&!cand.some(e=>Math.abs(daysBetween(e.f,ul))<=1))cand.push({src:'PL',key:'PL:'+p.id,id:'',eq,f:ul,text:'',r:0,m:0});
   const byD=new Map();cand.forEach(e=>{const c=byD.get(e.f);if(c)c.items.push(e);else byD.set(e.f,{f:e.f,items:[e]})});
   cand=[...byD.values()].sort((a,b)=>a.f.localeCompare(b.f));
@@ -3019,7 +3020,7 @@ async function igcSyncPlan(rerender){
  for(const p of (D.Plan||[])){
   if(!p.id||String(p.id).indexOf('tmp_')===0||!p.equipo||!p.actividad||!(+p.intervalo>0)||p.estado==='Inactivo')continue;
   const k=KIND(p.actividad),mt=matcher(p),eq=p.equipo,
-   c=EX.filter(e=>e.f<=t&&(e.eq===eq||(k==='engrase'&&pm[eq]&&pm[eq].has(e.eq)))&&mt(e));
+   c=EX.filter(e=>e.f<=t&&(e.eq===eq||((k==='engrase'||k==='lavado')&&pm[eq]&&pm[eq].has(e.eq)))&&mt(e));
   if(!c.length)continue;
   const L=c.reduce((a,e)=>e.f>a?e.f:a,''),ul=d10(p.ultima_fecha);
   if(OKD.test(ul)&&ul>=L)continue;
@@ -3041,6 +3042,107 @@ const _ppV=window.ppView;
 window.ppView=async function(m){try{await Promise.all(['Plan','Ordenes','Servicios','Acoplamientos','Tractocamiones','Traileres'].map(load));await igcSyncPlan(false)}catch(e){}return _ppV.apply(this,arguments)};
 const _calV=window.cal;
 window.cal=async function(m){try{await Promise.all(['Plan','Ordenes','Servicios','Acoplamientos','Tractocamiones','Traileres'].map(load));await igcSyncPlan(false)}catch(e){}return _calV.apply(this,arguments)};
+
+/* ================= PROTOCOLOS → PLAN ANUAL · LAVADO QUINCENAL · VISTA POR COMPONENTE ================= */
+(()=>{
+const EXTRA_TR=['Portarepuestos','Llantas','Sistema de lubricación','Sistema hidráulico (volco)','Patas de apoyo'];
+try{EXTRA_TR.forEach(x=>{if(!SEED.sis.trailer.includes(x))SEED.sis.trailer.push(x)})}catch(e){}
+const isTractor=c=>(D.Tractocamiones||[]).some(x=>x.codigo===c);
+const compList=eq=>isTractor(eq)?SEED.sis.tracto.map(x=>x[0]):SEED.sis.trailer.slice();
+function canon(eq,name){const n=norm(name||'').trim();if(!n)return null;const L=compList(eq);
+ let r=L.find(x=>norm(x)===n);if(r)return r;r=L.find(x=>n.length>5&&(norm(x).includes(n)||n.includes(norm(x))));return r||null}
+/* Actividades de los protocolos creados (International 9400, Kenworth T800 y Semirremolque) + propuestas para cubrir todo componente */
+function protoRows(){const out=[],P=SEED.proto;
+ const add=(e,a,s,u,i,f,est)=>out.push({equipo:e,sistema:s,actividad:a,unidad:u,intervalo:String(i),ultimo_valor:'',ultima_fecha:'',fuente:f,tipo_fuente:est==='prop'?'Politica interna':'Taller',estado:est==='act'?'Activo':'Pendiente validacion'});
+ (D.Tractocamiones||[]).forEach(q=>{const e=q.codigo,kw=/kenworth/i.test(q.marca||''),pn=kw?'Protocolo Kenworth T800':'Protocolo International 9400',pm='Marcas del '+pn+' (5.000, 10.000, 20.000, 30.000, 40.000 y 50.000 km): se programa cada 10.000 km. Validar';
+  [['Revisión y limpieza del sistema de frenos','Sistema de frenos de aire','km',10000,pm],
+   ['Revisión de la suspensión delantera y trasera','Sistema de suspensión delantera y trasera','km',10000,pm],
+   ['Revisión del sistema de aire acondicionado','Sistema de aire acondicionado','km',10000,pm],
+   ['Verificar juego libre del pedal de embrague','Sistema de transmisión','km',10000,pm],
+   ['Revisión de correas (todas)','Sistema motor','km',10000,pm],
+   ['Ajustar válvulas del motor','Sistema motor','km',30000,'Marca de 30.000 km del '+pn+'. Validar'],
+   ['Revisión del sistema de escape','Sistema de escape','km',40000,'Marca de 40.000 km del '+pn+'. Validar'],
+   ['Alineación de ruedas','Sistema eje delantero','km',30000,'Marca de 30.000 km del protocolo International 9400. Validar'],
+   ['Inspección de fundas de caucho de la rótula de dirección','Sistema de dirección','km',30000,'Marca de 30.000 km del protocolo International 9400. Validar'],
+   ['Carrera y juego del pedal del freno','Sistema de frenos de aire','km',30000,'Marca de 30.000 km del protocolo International 9400. Validar'],
+   ['Reemplazo de válvula de ventilación positiva (PCV)','Sistema motor','km',200000,'Protocolo: cada 200.000 km. Validar']].forEach(r=>add(e,r[0],r[1],r[2],r[3],r[4],'pv'));
+  [['Revisión del cajetín de la dirección','Sistema de dirección','km',5000,pn+': cada 5.000 km'],
+   ['Cambio de correa de repartición y tensor','Sistema motor','km',40000,pn+': cada 40.000 km o según el estado'],
+   ['Cambio del líquido de la dirección hidráulica','Sistema de dirección','km',80000,pn+': cada 80.000 km'],
+   ['Revisión del sistema de carga y batería','Sistema eléctrico del vehículo pesado','horas',350,pn+': cada 350 horas'],
+   ['Limpieza del sistema de enfriamiento del motor','Sistema de enfriamiento','horas',1200,pn+': cada 1.200 horas'],
+   ['Fugas de aceite en amortiguadores','Sistema de suspensión delantera y trasera','km',120000,pn+': cada 120.000 km'],
+   ['Revisión con escáner del motor (mensual)','Sistema motor','dias',30,'Hoja de vida 2025: revisión mensual con escáner'],
+   ['Lavado de cabezote','Cabina','dias',15,'Definición de la dirección: lavado cada 15 días (general, cabezote o tráiler)']].forEach(r=>add(e,r[0],r[1],r[2],r[3],r[4],'act'));
+  const pr='Propuesta para que el componente tenga revisión programada. Validar el intervalo';
+  [['Inspección del sistema de admisión (turbo, post-enfriador y mangueras)','Sistema de admisión',90],['Inspección del sistema de combustible (tanque, líneas y filtros)','Sistema de combustible',90],
+   ['Inspección y engrase de cojinetes de cubo delanteros','Sistema eje delantero',180],['Inspección de ejes traseros (envoltura, retenes y fugas)','Sistema ejes traseros',90],
+   ['Inspección de la quinta rueda (plancha, muelas y pernos)','Sistema quinta rueda',90],['Inspección del sistema hidráulico del volco (toma de fuerza, bomba y mangueras)','Sistema hidráulico',90],
+   ['Inspección de cabina (espejos, lunas, tapicería y puertas)','Cabina',90],['Inspección de llantas (desgaste, presión y daños)','Llantas',30]].forEach(r=>add(e,r[0],r[1],'dias',r[2],pr,'prop'))});
+ const SR=(P&&P.Semirremolque&&P.Semirremolque.items)||[];
+ (D.Traileres||[]).forEach(q=>{const e=q.codigo;
+  SR.forEach(it=>{if(/engrase/i.test(it.p))return;const m=Object.values(it.m||{}),a=m.some(x=>/A/.test(x)),iv=it.m&&it.m['15000']?15000:30000;
+   add(e,(a?'Inspección y ajuste: ':'Inspección: ')+it.p,it.p,'km',iv,'Protocolo Semirremolque: marcas de '+(iv===15000?'15.000':'30.000')+' km ('+m.join(', ')+')','act')});
+  const pr='Propuesta para que el componente tenga revisión programada. Validar el intervalo';
+  add(e,'Lavado de tráiler (volco)','Caja de carga','dias',15,'Definición de la dirección: lavado cada 15 días (general, cabezote o tráiler)','act');
+  add(e,'Inspección de llantas (desgaste, presión y daños)','Llantas','dias',30,pr,'prop');
+  add(e,'Inspección del sistema hidráulico del volco (pistón, pivote y mangueras)','Sistema hidráulico (volco)','dias',90,pr,'prop');
+  add(e,'Inspección y engrase de patas de apoyo','Patas de apoyo','dias',90,pr,'prop')});
+ return out}
+const pkey=r=>r.equipo+'|'+norm(r.actividad);
+const missing=()=>{const ex=new Set((D.Plan||[]).map(pkey));return protoRows().filter(r=>!ex.has(pkey(r)))};
+async function cargar(m){const M=missing();if(!M.length)return msg('El plan ya tiene todas las actividades de los protocolos');
+ if(!confirm('Se agregarán '+M.length+' actividades de los protocolos al plan (las que ya existan se omiten). Después podrá editar cada intervalo en «Programas y protocolos → Plan por placa». Las marcadas «por validar» son propuestas o interpretaciones del protocolo. ¿Continuar?'))return;
+ let n=0;for(const r of M){try{await call('save','Plan',r);n++;if(n%10===0)msg('Cargando al plan… '+n+' de '+M.length)}catch(x){return msg('Error al cargar: '+(x&&x.message||x),1)}}
+ msg(n+' actividades agregadas. En línea se guardan en segundo plano: no cierre la página hasta que termine.');try{await load('Plan')}catch(e){}go('ppl')}
+/* ---- Lavado: general / cabezote / tráiler ---- */
+function lavDialog(again){const d=$('#dlg'),tr=(D.Tractocamiones||[]).map(t=>t.codigo),pmap=pairsMap();d.className='';
+ if(!tr.length)return msg('Primero registre los tractocamiones',1);
+ d.innerHTML='<h3>🚿 Registrar lavado</h3><div class=fg><div><label>Tractocamión</label>'+optSel('lv_e',tr,tr[0])+'</div><div><label>Tipo de lavado</label><select id=lv_t><option value=g>Lavado general (cabezote + tráiler)</option><option value=c>Lavado de cabezote</option><option value=r>Lavado de tráiler (volco)</option></select></div><div><label>Fecha del lavado</label><input id=lv_f type=date value="'+today()+'" max="'+today()+'"></div><div><label>Responsable</label><input id=lv_r list=dl_prov autocomplete=off></div><div><label>Tráiler acoplado</label><input id=lv_a readonly></div><div class=w><label>Observaciones</label><textarea id=lv_o rows=2></textarea></div></div><div class=bar style="margin-top:10px"><button id=lv_ok>Guardar lavado</button><button class=s id=lv_x>Cancelar</button></div><small>Queda como orden de trabajo cerrada: cuenta como ejecutado en el plan anual (cada 15 días), en el calendario y en los costos.</small>';
+ const W=costBlock(d,d.querySelector('.bar'),{});
+ const pre=()=>{const p=pmap[$('#lv_e').value];$('#lv_a').value=p?[...p].join(' + '):'—'};$('#lv_e').onchange=pre;pre();
+ d.showModal();$('#lv_x').onclick=()=>d.close();
+ $('#lv_ok').onclick=async()=>{const eq=$('#lv_e').value,f=$('#lv_f').value,t=$('#lv_t').value;if(!f)return msg('Indique la fecha',1);if(f>today())return msg('La fecha no puede ser futura',1);
+  const G=gather(d,W);if(G.err)return msg(G.err,1);RLOCK();const p=pmap[eq],trl=p?[...p][0]:'';
+  if(t!=='c'&&!trl)return msg('Este tractocamión no tiene tráiler acoplado; registre el lavado de cabezote',1);
+  const tgt=t==='r'?trl:eq,E=estEq(eq),txt=t==='g'?'Lavado general (cabezote + tráiler) '+eq+' + '+trl:t==='c'?'Lavado de cabezote '+eq:'Lavado de tráiler (volco) '+trl;
+  const x={equipo:tgt,componente:t==='r'?'Caja de carga':'Cabina',novedad_id:'Plan preventivo',fecha:f,fecha_inicio:f,fecha_cierre:f,km:E&&E.km!=null?Math.round(E.km):'',prioridad:'P4',estado:'Cerrada',responsable:$('#lv_r').value.trim(),actividades:txt+' [Preventivo · lavado quincenal]',resultado:$('#lv_o').value.trim(),costo_repuestos:G.r||'',costo_mano_obra:G.m||'',factura_repuestos:W.WR.get(),factura_mantenimiento:W.WM.get(),repuestos:FT().ser('',G.B)};
+  const er=window.otVal?window.otVal(x):'';if(er)return msg(er,1);
+  try{await call('save','Ordenes',x);d.close();msg('Lavado registrado');await load('Ordenes');again&&again()}catch(z){msg('Error: '+(z&&z.message||z),1)}}}
+window.igcLavDialog=lavDialog;
+/* ---- Vista por componente ---- */
+function compHtml(S,Y,idx,eqSel){
+ const by=new Map();S.forEach(s=>{(by.get(s.eq)||by.set(s.eq,[]).get(s.eq)).push(s)});
+ const codes=eqs().map(e=>e.codigo).filter(c=>!eqSel||c===eqSel);
+ let h='<div class=tw><table class=pa><tr><th class=l>Componente / actividad<th>Cada'+MES.map(x=>'<th>'+x).join('')+'<th>Prog.<th>Ejec.<th>Cumpl.</tr>';
+ const sum={tot:0,con:0,sin:[]};
+ codes.forEach(eq=>{const q=eqs().find(x=>x.codigo===eq)||{},L=compList(eq),g=new Map(L.map(c=>[c,[]])),otros=[];
+  (by.get(eq)||[]).forEach(s=>{const c=canon(eq,s.sis);if(c)g.get(c).push(s);else otros.push(s)});
+  const sin=L.filter(c=>!g.get(c).length);sum.tot+=L.length;sum.con+=L.length-sin.length;sin.forEach(c=>sum.sin.push(eq+' · '+c));
+  h+='<tr class=pg><td colspan=17>'+eqTxt(eq)+' <small style="font-weight:400">'+esc([q.marca,q.linea||q.modelo,q.modelo&&q.linea?q.modelo:''].filter(Boolean).join(' '))+' · <b style="color:'+(sin.length?'#b71c1c':'#1b5e20')+'">'+(L.length-sin.length)+' de '+L.length+' componentes con actividad programada</b></small></tr>';
+  const row=s=>{const z=sStat(s),i=idx.get(s);return '<tr><td class=l title="'+esc(s.basis)+'" style="padding-left:22px">'+esc(s.act)+(s.pv?' <small>(por validar)</small>':'')+'<td><small>'+(s.unit==='dias'?s.n+' d':fmt(s.n)+' '+s.unit)+'</small>'+MES.map((_,mo)=>{const c=cellInfo(s,mo);return'<td class="cc '+c.c+'" data-s="'+i+'" data-m="'+mo+'">'+c.t}).join('')+'<td>'+z.n+'<td>'+z.ok+'<td><b>'+pcTxt(z.pc)+'</b></tr>'};
+  L.forEach(c=>{const ss=g.get(c);
+   if(!ss.length){h+='<tr><td class=l colspan=17 style="background:#fdecea;color:#b71c1c"><b>⚠ '+esc(c)+'</b> — SIN ACTIVIDAD DE REVISIÓN NI MANTENIMIENTO '+(canW()?'<button class=s data-np="'+esc(eq)+'|'+esc(c)+'">＋ Programar actividad</button>':'')+'</tr>';return}
+   const T2=ss.reduce((a,s)=>{const z=sStat(s);a.ok+=z.ok;a.miss+=z.miss;return a},{ok:0,miss:0});
+   h+='<tr><td class=l colspan=17 style="background:#eef6fb;font-weight:700">'+esc(c)+' <small style="font-weight:400">· '+ss.length+' actividad'+(ss.length>1?'es':'')+' · cumplimiento '+pcTxt(T2.ok+T2.miss?Math.round(T2.ok/(T2.ok+T2.miss)*100):null)+'</small></tr>'+ss.map(row).join('')});
+  if(otros.length)h+='<tr><td class=l colspan=17 style="background:#fff8e1;font-weight:700">Otros (el nombre del componente no coincide con la lista: corríjalo en Plan por placa)</tr>'+otros.map(row).join('')});
+ return{html:h+'</table></div>',sum}}
+const _pp4=window.ppView;
+window.ppView=async function(m){await _pp4.apply(this,arguments);
+ try{const W=window.ppw2=window.ppw2||{},mode=W.v||'comp',P=planAnual(W.y),S=P.series.filter(s=>(!W.e||s.eq===W.e)&&(!W.a||s.act===W.a)),idx=new Map(S.map((s,i)=>[s,i])),can=canW(),miss=missing();
+  const bar=m.querySelector('.bar'),tbl=m.querySelector('.tw');
+  let info='';
+  if(mode==='comp'&&tbl){const r=compHtml(S,W.y,idx,W.e);tbl.outerHTML=r.html;
+   info='<div class=cards style="margin-top:8px"><div class="card '+(r.sum.sin.length?'r':'g')+'"><b>'+r.sum.sin.length+'</b>Componentes SIN actividad programada</div><div class=card><b>'+r.sum.con+' / '+r.sum.tot+'</b>Componentes con revisión o mantenimiento</div></div>'}
+  const tg='<div class=bar style="margin:8px 0"><b>Vista:</b> <button class="'+(mode==='comp'?'':'s')+'" id=pv_c>🧩 Por componente</button><button class="'+(mode==='comp'?'s':'')+'" id=pv_t>📋 Por tarea</button>'+(can?'<button id=pv_l>🚿 Registrar lavado</button>':'')+'</div>'+
+   (miss.length&&can?'<div class=wn style="margin:6px 0"><b>'+miss.length+' actividades de los protocolos aún no están en el plan</b> (mantenimiento de cada sistema, lavado cada 15 días y propuestas para que ningún componente quede sin revisión). <button id=pv_s>⬇ Cargar protocolos al plan</button></div>':'')+info;
+  bar.insertAdjacentHTML('beforebegin',tg);
+  const rer=()=>ppView(m);
+  $('#pv_c').onclick=()=>{W.v='comp';rer()};$('#pv_t').onclick=()=>{W.v='task';rer()};
+  if($('#pv_l'))$('#pv_l').onclick=()=>lavDialog(rer);if($('#pv_s'))$('#pv_s').onclick=()=>cargar(m);
+  const oc=m.onclick;m.onclick=e=>{const b=e.target.closest('[data-np]');if(b){const[eq,c]=b.dataset.np.split('|');edit('Plan',null,true,{equipo:eq,sistema:c,unidad:'dias',intervalo:'90',estado:'Activo'});return}return oc&&oc.call(m,e)}
+ }catch(x){console.error(x)}};
+})();
 })();
 
 </script>
@@ -3057,42 +3159,143 @@ const nm=(v,a,b,df)=>{v=Math.round(+v);return v>=a&&v<=b?v:df};
 const parse=v=>{const S={};String(v||'').split(';').forEach(x=>{x=x.trim();const i=x.lastIndexOf('=');if(i<0)return;const t=x.slice(i+1).trim(),id=x.slice(0,i).trim();if(id&&TY[t])S[id]=t});return S};
 const ser=S=>Object.entries(S).map(([k,t])=>k+'='+t).join(' ; ');
 
-/* Catálogo de puntos de cada vehículo. Las llantas usan los mismos puestos del módulo Llantas. */
+/* ===== Catálogo DETALLADO de componentes por vehículo (Kenworth T800, International Eagle 9400 y volcos) =====
+   Cada componente tiene una clave estable (k). Los que tienen x,y se dibujan en el esquema; todos aparecen además en la
+   «Lista completa» agrupada por sistema, donde también se pueden marcar. Las claves anteriores se conservan, por lo que
+   las órdenes ya guardadas siguen mostrando sus partes. */
 function cat(c){
- const tr=isT(c),P=[],T=[],AX=[];let H;
- const add=(k,l,x,y,a,s,side)=>P.push({k,l,x,y,a,s,side});
- const tires=(ax,n,y,lb)=>{AX.push(y);(n===2?[[58,'I'],[226,'D']]:[[44,'IE'],[64,'II'],[220,'DI'],[240,'DE']]).forEach(([x,s])=>T.push({k:'llanta:'+ax+'-'+s,l:'Llanta '+ax+' · '+SD[s],x,y}));P.push({k:'_ax'+ax,lb,x:258,y,t:1})};
+ const tr=isT(c),P=[],T=[],AX=[],G=[];let H,body='',title='';
+ const grp=n=>G.find(g=>g.n===n)||(G[G.push({n,items:[]})-1]);
+ /* add(sistema, clave, nombre completo, sigla, x, y, lado, nombre corto en el esquema) — sin x,y = solo en la lista */
+ const add=(sys,k,l,a,x,y,side,s)=>{const p={k,l,a,x,y,side,s:s===undefined?l:s,sys};P.push(p);grp(sys).items.push(p);return p};
+ const tires=(ax,n,y,lb)=>{AX.push(y);(n===2?[[70,'I'],[330,'D']]:[[58,'IE'],[80,'II'],[320,'DI'],[342,'DE']]).forEach(([x,s])=>{const t={k:'llanta:'+ax+'-'+s,l:'Llanta '+ax+' · '+SD[s],x,y,sys:'Llantas'};T.push(t);grp('Llantas').items.push(t)});P.push({k:'_ax'+ax,lb,x:352,y:y+3,t:1,end:1})};
  if(tr){
-  H=380;const Y={dir:96,m1:240,m2:305};
-  add('cab','Cabina',150,33,'Ca','Cabina','r');add('rad','Enfriamiento (radiador)',150,72,'Rd','Radiador','r');
-  add('motor','Motor',150,124,'Mt','Motor','r');add('caja','Caja de cambios y embrague',150,158,'Cj','Caja / embrague','r');add('cardan','Cardán y crucetas',150,196,'Cd','Cardán','r');
-  add('fre:Direccional','Frenos · eje direccional',128,Y.dir,'F');add('dir','Dirección (caja, brazos y terminales)',172,Y.dir,'Dr');
-  add('mueD:I','Muelle delantero izq.',90,Y.dir,'M');add('mueD:D','Muelle delantero der.',210,Y.dir,'M');
-  add('fre:Motriz 1','Frenos · Motriz 1',128,Y.m1,'F');add('dif:Motriz 1','Diferencial Motriz 1',150,Y.m1,'Df');
-  add('quinta','Quinta rueda',150,272,'Q','Quinta rueda','r');
-  add('fre:Motriz 2','Frenos · Motriz 2',128,Y.m2,'F');add('dif:Motriz 2','Diferencial Motriz 2',150,Y.m2,'Df');
-  add('mueT:I','Muelle trasero izq.',90,258,'M');add('balT:I','Balancín trasero izq.',90,286,'B');add('mueT:D','Muelle trasero der.',210,258,'M');add('balT:D','Balancín trasero der.',210,286,'B');
-  add('elec','Sistema eléctrico (batería, alternador, luces)',92,150,'El','Eléctrico','l');add('comb','Tanque de combustible',92,178,'Cb','Combustible','l');
-  add('aire','Tanques de aire y sistema neumático',208,215,'Ai','Tanques de aire','r');
-  add('estr','Chasis y estructura',150,345,'Ch','Chasis y estructura','r');
-  tires('Direccional',2,Y.dir,'Direcc.');tires('Motriz 1',4,Y.m1,'Motriz 1');tires('Motriz 2',4,Y.m2,'Motriz 2');
+  const q=(D.Tractocamiones||[]).find(x=>x.codigo===c)||{},kw=/kenworth/i.test(q.marca||''),ints=/international/i.test(q.marca||'');
+  title=[q.marca,q.linea,q.modelo].filter(Boolean).join(' ')+(q.motor_marca_modelo?' · Motor '+q.motor_marca_modelo:'');
+  const SY={cab:'Cabina y carrocería',mot:'Motor',adm:'Admisión',enf:'Enfriamiento',lub:'Lubricación y filtros',esc:'Escape',comb:'Combustible',ele:'Sistema eléctrico',trn:'Transmisión (embrague, caja y cardán)',dir:'Dirección',ed:'Eje direccional y suspensión delantera',m1:'Eje motriz 1',m2:'Eje motriz 2',sus:'Suspensión trasera (muelles y balancines)',neu:'Frenos de aire y sistema neumático',qui:'Quinta rueda',hid:'Hidráulico del volco (toma de fuerza)',est:'Chasis y estructura'};
+  H=940;const Y={dir:592,'Motriz 1':668,'Motriz 2':782};
+  /* Cabina y carrocería */
+  add(SY.cab,'par','Parachoques y defensa delantera','Pc',200,22,'r','Parachoques y defensa');
+  add(SY.cab,'luz:I','Faro y luces delanteras izquierdas','Lz',150,48,'l','Faros y luces izq.');add(SY.cab,'luz:D','Faro y luces delanteras derechas','Lz',250,48,'r','Faros y luces der.');
+  add(SY.cab,'capo',kw?'Capó basculante, bisagras y soportes':'Capó, bisagras y soportes','Cp',200,74,'r','Capó y bisagras');
+  add(SY.cab,'esp:I','Espejo retrovisor izquierdo','Ej',150,284,'l','Espejo izq.');add(SY.cab,'esp:D','Espejo retrovisor derecho','Ej',250,284,'r','Espejo der.');
+  add(SY.cab,'cab','Cabina (estructura, puertas y cerraduras)','Ca',150,310,'l','Cabina y puertas');add(SY.cab,'luna','Parabrisas, lunas y vidrios','Pb',250,310,'r','Parabrisas y lunas');
+  add(SY.cab,'sil','Sillas, tapizado y cinturones de seguridad','Si',150,336,'l','Sillas y tapizado');add(SY.cab,'tab','Tablero, instrumentos y controles','Tb',250,336,'r','Tablero y controles');
+  add(SY.cab,'ac','Aire acondicionado (compresor, condensador y evaporador)','Ac',150,362,'l','Aire acondicionado');add(SY.cab,'seg','Extintor, botiquín y reflectivos','Sg',250,362,'r','Extintor y botiquín');
+  add(SY.cab,'limp','Limpiaparabrisas, plumillas y motor');add(SY.cab,'cerr','Manijas, cerraduras y elevavidrios');add(SY.cab,'pint','Pintura y latonería');
+  /* Motor */
+  add(SY.mot,'motor','Motor (bloque, culata y cigüeñal)','Mt',200,178,'r','Motor (bloque y culata)');
+  add(SY.mot,'turbo','Turbocompresor','Tu',150,204,'l','Turbocompresor');add(SY.mot,'ecm','ECM, sensores y cableado del motor','Ec',250,204,'r','ECM y sensores');
+  add(SY.mot,'iny','Inyectores y bomba de inyección');add(SY.mot,'culata','Culata, válvulas y balancines');add(SY.mot,'fmot','Freno de motor');
+  add(SY.mot,'smot','Soportes del motor y volante / damper');
+  /* Admisión */
+  add(SY.adm,'air','Filtro de aire y carcasa','Fa',250,152,'r','Filtro de aire');add(SY.adm,'inter','Post-enfriador (intercooler) y mangueras de admisión','Pe',250,100,'r','Post-enfriador');
+  /* Enfriamiento */
+  add(SY.enf,'rad','Radiador','Rd',150,100,'l','Radiador');add(SY.enf,'vent','Ventilador y fan clutch','Vn',150,126,'l','Ventilador / fan clutch');
+  add(SY.enf,'bagua','Bomba de agua y termostato','Ba',250,126,'r','Bomba de agua / termostato');add(SY.enf,'cor','Correas, poleas y tensor','Co',150,152,'l','Correas y tensor');
+  add(SY.enf,'mrad','Mangueras y abrazaderas del radiador');add(SY.enf,'refr','Refrigerante (nivel y concentración)');
+  /* Lubricación */
+  add(SY.lub,'filt','Filtros de aceite, combustible, trampa y agua','Fl',150,230,'l','Filtros de motor');add(SY.lub,'carter','Cárter y bomba de aceite','Ct',250,230,'r','Cárter y bomba aceite');
+  add(SY.lub,'engr','Puntos de engrase del chasis (engrase general)');
+  /* Escape */
+  add(SY.esc,'esc:mul','Múltiple y tubería de escape','Es',150,256,'l','Múltiple de escape');add(SY.esc,'esc:sil','Silenciador y tubo de escape','Sl',250,256,'r','Silenciador y tubo');
+  add(SY.esc,'esc:sop','Soportes, abrazaderas y pestañas del escape');
+  /* Eléctrico */
+  add(SY.ele,'elec','Baterías, bornes y cables','El',150,394,'l','Baterías y cables');add(SY.ele,'alt','Alternador','Al',250,394,'r','Alternador');
+  add(SY.ele,'arr','Motor de arranque','Ar',150,420,'l','Motor de arranque');add(SY.ele,'fus','Fusibles, relés y arneses','Fs',250,420,'r','Fusibles y arneses');
+  add(SY.ele,'luzT','Luces traseras, stop y direccionales','Lt',150,874,'l','Luces traseras');add(SY.ele,'luzL','Luces laterales, reflectivos y bocina');
+  /* Combustible */
+  add(SY.comb,'comb','Tanque(s) de combustible','Cb',150,446,'l','Tanque combustible');add(SY.comb,'linea','Líneas, bomba de cebado y separador de agua','Lc',250,446,'r','Líneas y bomba cebado');
+  /* Transmisión */
+  add(SY.trn,'embr','Embrague, cilindro y pedal','Em',200,474,'r','Embrague y pedal');add(SY.trn,'caja','Caja de cambios','Cj',200,500,'r','Caja de cambios');
+  add(SY.trn,'cardan','Cardán (árbol de transmisión)','Cd',150,526,'l','Cardán');add(SY.trn,'cruc','Crucetas, yugos y soportes del cardán','Cz',250,526,'r','Crucetas y soportes');
+  add(SY.trn,'pto','Toma de fuerza (PTO)');
+  /* Dirección */
+  add(SY.dir,'dir','Dirección (caja, brazos y terminales)','Dr',150,556,'l','Caja y brazos dirección');add(SY.dir,'bdir','Bomba, depósito y mangueras de la dirección hidráulica','Bd',250,556,'r','Bomba de dirección');
+  add(SY.dir,'col','Columna y volante');
+  /* Eje direccional */
+  add(SY.ed,'mueD:I','Muelle delantero izq.','M',112,Y.dir);add(SY.ed,'amoD:I','Amortiguador delantero izq.','Am',140,Y.dir);
+  add(SY.ed,'fre:Direccional','Frenos · eje direccional','F',168,Y.dir);add(SY.ed,'eje:Direccional','Eje delantero, mangos y pivotes','E',232,Y.dir);
+  add(SY.ed,'amoD:D','Amortiguador delantero der.','Am',260,Y.dir);add(SY.ed,'mueD:D','Muelle delantero der.','M',288,Y.dir);
+  ['Direccional'].forEach(a=>{add(SY.ed,'zap:'+a,'Zapatas y bandas · '+a);add(SY.ed,'tam:'+a,'Tambores / campanas · '+a);add(SY.ed,'cam:'+a,'Cámaras de freno y ajustadores · '+a);add(SY.ed,'cubo:'+a,'Cubos, rodamientos y retenes · '+a)});
+  add(SY.ed,'barraE','Barra estabilizadora y bujes');
+  /* Ejes motrices */
+  [['Motriz 1',SY.m1],['Motriz 2',SY.m2]].forEach(([a,sy])=>{const y=Y[a];
+   add(sy,'eje:'+a,'Eje, semiejes y envoltura · '+a,'E',140,y);add(sy,'fre:'+a,'Frenos · '+a,'F',168,y);add(sy,'dif:'+a,'Diferencial '+a,'Df',232,y);
+   add(sy,'zap:'+a,'Zapatas y bandas · '+a);add(sy,'tam:'+a,'Tambores / campanas · '+a);add(sy,'cam:'+a,'Cámaras de freno y ajustadores · '+a);add(sy,'cubo:'+a,'Cubos, rodamientos y retenes · '+a)});
+  /* Suspensión trasera */
+  add(SY.sus,'mueT:I','Muelle trasero izq.','M',126,706);add(SY.sus,'balT:I','Balancín trasero izq.','B',154,706);add(SY.sus,'balT:D','Balancín trasero der.','B',246,706);add(SY.sus,'mueT:D','Muelle trasero der.','M',274,706);
+  add(SY.sus,'tensT','Tensores, bujes y soportes de balancín');add(SY.sus,'grapT','Grapas (U-bolts) y espárragos de muelles');
+  /* Quinta */
+  add(SY.qui,'quinta','Quinta rueda (plancha, muelas y pernos)','Q',200,732,'r','Quinta rueda');add(SY.qui,'quinta:pal','Palanca de liberación y torres');
+  /* Neumático */
+  add(SY.neu,'aire','Tanques de aire y sistema neumático','Ai',150,822,'l','Tanques de aire');add(SY.neu,'comp','Compresor de aire y secador','Cm',250,822,'r','Compresor y secador');
+  add(SY.neu,'valv','Válvulas (relay, protección y de pedal)');add(SY.neu,'mairec','Mangueras, racores y acoples de aire');add(SY.neu,'fest','Freno de estacionamiento (cámaras de resorte)');add(SY.neu,'abs','Sensores y modulador ABS');
+  /* Hidráulico */
+  add(SY.hid,'hid','Bomba hidráulica del volco','Hd',150,848,'l','Bomba hidráulica volco');add(SY.hid,'mhid','Mangueras y válvula de mando del volco','Mh',250,848,'r','Mangueras hidráulicas');
+  /* Chasis */
+  add(SY.est,'estr','Chasis, largueros y travesaños','Ch',200,900,'r','Chasis y estructura');add(SY.est,'lod','Loderas, guardabarros y defensa trasera','Lo',250,874,'r','Loderas y guardabarros');
+  tires('Direccional',2,Y.dir,'Direcc.');tires('Motriz 1',4,Y['Motriz 1'],'Motriz 1');tires('Motriz 2',4,Y['Motriz 2'],'Motriz 2');
+  body=`<rect x="146" y="8" width="108" height="9" rx="4" fill="#b0bec5"/><rect x="168" y="19" width="64" height="238" rx="10" fill="#f1f5f8" stroke="#c5d3dc"/><rect x="134" y="268" width="132" height="112" rx="12" fill="#d3e0e8" stroke="#aebfca"/><rect x="172" y="384" width="56" height="${H-384-14}" rx="6" fill="#e9eff3" stroke="#b7c6d0"/><text x="200" y="14.5" font-size="7" text-anchor="middle" fill="#455a64">FRENTE</text><text x="200" y="${H-4}" font-size="7" text-anchor="middle" fill="#455a64">ATRÁS</text>`;
  }else{
   const r=(D.Traileres||[]).find(x=>x.codigo===c)||{},g=cfgG(c),ne=nm(r.ejes,1,4,3),nb=nm(g.bal,0,8,4),nu=nm(g.mue,0,8,4),ya=k=>290+40*k,last=ya(ne-1);
-  H=last+70;
-  add('quinta','Quinta rueda / king pin',150,40,'Q','Quinta rueda / king pin','r');add('patas','Patas de apoyo',150,78,'Pa','Patas de apoyo','r');
-  add('hidr','Pivote y cilindro hidráulico del volco',150,118,'Hd','Pivote / cilindro volco','r');add('carr','Carrocería / platón (volco)',150,160,'Pl','Carrocería / platón','r');
-  add('aire','Tanque y sistema neumático',150,200,'Ai','Sistema neumático','r');add('elec','Luces y sistema eléctrico',150,240,'El','Luces / eléctrico','r');
-  for(let k=0;k<ne;k++){add('fre:Eje '+(k+1),'Frenos · Eje '+(k+1),128,ya(k),'F');add('eje:Eje '+(k+1),'Eje y rodamientos · Eje '+(k+1),172,ya(k),'E');tires('Eje '+(k+1),4,ya(k),'Eje '+(k+1))}
+  title=[r.marca,r.modelo].filter(Boolean).join(' ')+(r.ejes?' · '+r.ejes+' ejes':'');
+  H=last+112;
+  const SY={aco:'Acople y patas de apoyo',hid:'Hidráulico del volco',car:'Carrocería / caja de carga',ele:'Sistema eléctrico y luces',neu:'Frenos de aire y sistema neumático',eje:'Ejes y rodamientos',sus:'Suspensión (muelles y balancines)',est:'Chasis y estructura'};
+  add(SY.aco,'quinta','King pin y plato de acople','Q',150,28,'l','King pin y plato');add(SY.aco,'patas','Patas de apoyo','Pa',250,28,'r','Patas de apoyo');add(SY.aco,'pmec','Mecanismo y manivela de las patas');
+  add(SY.hid,'hidr','Pivote y cilindro hidráulico del volco','Hd',150,54,'l','Pivote y cilindro volco');add(SY.hid,'hmang','Mangueras, válvulas y acoples hidráulicos','Mh',250,54,'r','Mangueras hidráulicas');
+  add(SY.car,'carr','Carrocería / platón (estructura)','Pl',150,80,'l','Carrocería / platón');add(SY.car,'piso','Piso y laterales del platón','Pi',250,80,'r','Piso y laterales');
+  add(SY.car,'comp','Compuerta, bisagras y pestillos','Cp',150,106,'l','Compuerta y pestillos');add(SY.car,'pivote','Pivote trasero de volteo y bujes','Pv',250,106,'r','Pivote trasero volteo');
+  add(SY.car,'lona','Carpa y mecanismo de lona','Ln',150,132,'l','Carpa y mecanismo');add(SY.car,'travc','Travesaños y refuerzos del platón','Tc',250,132,'r','Travesaños del platón');
+  add(SY.ele,'elec','Luces y sistema eléctrico (general)','El',150,158,'l','Luces y eléctrico');add(SY.ele,'conec','Conector de 7 vías y cableado','Cn',250,158,'r','Conector 7 vías');
+  add(SY.ele,'luzt','Luces traseras, stop y direccionales','Lt',150,184,'l','Luces traseras y stop');add(SY.ele,'luzl','Luces laterales y reflectivos','Ll',250,184,'r','Luces laterales');
+  add(SY.neu,'aire','Sistema neumático (general)','Ai',150,210,'l','Sistema neumático');add(SY.neu,'tanq','Tanques de aire y válvula de drenaje','Tq',250,210,'r','Tanques de aire');
+  add(SY.neu,'relay','Válvula relay','Rl',150,236,'l','Válvula relay');add(SY.neu,'maire','Mangueras, bombonas y acoples (manitas)','Mg',250,236,'r','Mangueras y manitas');
+  for(let k=0;k<ne;k++){const a='Eje '+(k+1),y=ya(k);
+   add(SY.neu,'fre:'+a,'Frenos · '+a,'F',172,y);add(SY.eje,'eje:'+a,'Eje y rodamientos · '+a,'E',228,y);
+   add(SY.neu,'zap:'+a,'Zapatas y bandas · '+a);add(SY.neu,'tam:'+a,'Tambores / campanas · '+a);add(SY.neu,'cam:'+a,'Cámaras de freno · '+a);add(SY.neu,'rat:'+a,'Ratchets (ajustadores) y levas · '+a);
+   add(SY.eje,'rod:'+a,'Rodamientos y retenedores · '+a);add(SY.eje,'pern:'+a,'Espárragos y tuercas de rueda · '+a);
+   tires(a,4,y,a)}
   const yy=(i,n)=>n===1?(290+last)/2:290+(last-290)*(i/(n-1));
-  for(let i=0;i<nb;i++)add('bal:'+(i+1),'Balancín '+(i+1),96,yy(i,nb),String(i+1));
-  for(let i=0;i<nu;i++)add('mue:'+(i+1),'Muelle '+(i+1),204,yy(i,nu),String(i+1));
-  add('estr','Chasis y estructura',150,last+34,'Ch','Chasis y estructura','r');
-  P.push({k:'_hb',lb:'Balancines',x:96,y:272,t:1,mid:1},{k:'_hm',lb:'Muelles',x:204,y:272,t:1,mid:1});
+  for(let i=0;i<nb;i++)add(SY.sus,'bal:'+(i+1),'Balancín '+(i+1),String(i+1),120,yy(i,nb));
+  for(let i=0;i<nu;i++)add(SY.sus,'mue:'+(i+1),'Muelle '+(i+1),String(i+1),280,yy(i,nu));
+  add(SY.sus,'tens','Tensores y bujes de tensor');add(SY.sus,'grap','Grapas (U-bolts) y espárragos de muelles');
+  add(SY.est,'estr','Chasis y estructura','Ch',150,last+36,'l','Chasis y estructura');add(SY.est,'perch','Perchas y portarepuestos','Pe',250,last+36,'r','Perchas y portarepuestos');
+  add(SY.est,'defe','Defensa trasera y guardachoques','Df',150,last+62,'l','Defensa trasera');add(SY.est,'lod','Loderas y guardabarros','Lo',250,last+62,'r','Loderas y guardabarros');
+  P.push({k:'_hb',lb:'Balancines',x:120,y:272,t:1,mid:1},{k:'_hm',lb:'Muelles',x:280,y:272,t:1,mid:1});
+  body=`<rect x="170" y="14" width="60" height="${H-30}" rx="8" fill="#e9eff3" stroke="#b7c6d0"/><text x="200" y="10" font-size="7" text-anchor="middle" fill="#455a64">FRENTE (king pin)</text><text x="200" y="${H-4}" font-size="7" text-anchor="middle" fill="#455a64">ATRÁS</text>`;
  }
- return{P,T,AX,H,tr};
+ return{P,T,AX,H,tr,G,body,title};
 }
-const GR={llantas:[/llanta|pinchazo|caucho|ampolla|banda de rodamiento|reencauch/,k=>/^llanta:/.test(k)],muelles:[/muelle|ballesta|hojas? de resorte|grapa|tornillo central|u-?bolt/,k=>/^mue/.test(k)],balan:[/balancin|buje|ecualizador|torque rod/,k=>/^bal/.test(k)],frenos:[/freno|zapata|campana|tambor|ratch|rachet|camara de freno/,k=>/^fre:/.test(k)],quinta:[/quinta|king ?pin/,k=>k==='quinta'],patas:[/patas? de apoyo|landing/,k=>k==='patas'],hidr:[/hidraulic|piston|cilindro|volco/,k=>k==='hidr'],carr:[/carroceria|platon|compuerta|bisagra|volco/,k=>k==='carr'],cardan:[/cardan|crucet|eje de transmision/,k=>k==='cardan'],dif:[/diferencial|corona|pinon/,k=>/^dif:/.test(k)],caja:[/caja de (cambios|velocidades)|transmision|embrague|clutch/,k=>k==='caja'],motor:[/motor|inyector|turbo|culata|cigue/,k=>k==='motor'],rad:[/radiador|refrigerante|enfria|termostato|ventilador/,k=>k==='rad'],dirn:[/direccion|rotula|terminal|pitman|cremallera/,k=>k==='dir'],elec:[/electric|bateria|alternador|arranque|luces?\b|bombillo|farola|cableado|fusible/,k=>k==='elec'],aire:[/tanque de aire|neumatic|compresor|valvula relay|secador|bombona/,k=>k==='aire'],comb:[/combustible|diesel|acpm/,k=>k==='comb'],cab:[/cabina|tapiz|silla|parabrisas|puerta|espejo|acondicionado/,k=>k==='cab'],estr:[/chasis|estructura|soldadura|percha|travesano|larguero/,k=>k==='estr'],eje:[/\beje\b|rodamiento|retenedor|\bcubo/,k=>/^eje:/.test(k)]};
-const GN={llantas:'Llantas',muelles:'Muelles',balan:'Balancines / bujes',frenos:'Frenos',quinta:'Quinta rueda',patas:'Patas de apoyo',hidr:'Sistema hidráulico del volco',carr:'Carrocería',cardan:'Cardán',dif:'Diferenciales',caja:'Caja / embrague',motor:'Motor',rad:'Enfriamiento',dirn:'Dirección',elec:'Sistema eléctrico',aire:'Sistema neumático',comb:'Combustible',cab:'Cabina',estr:'Chasis y estructura',eje:'Ejes y rodamientos'};
+/* Grupos de componentes para resaltar (contorno naranja) lo que menciona el texto de la orden */
+const pre=(...a)=>k=>a.some(x=>k===x||k.startsWith(x+':'));
+const GR={
+ llantas:[/llanta|pinchazo|caucho|ampolla|banda de rodamiento|reencauch/,k=>/^llanta:/.test(k)],
+ muelles:[/muelle|ballesta|hojas? de resorte|grapa|tornillo central|u-?bolt/,k=>/^mue/.test(k)||/^grap/.test(k)],
+ amort:[/amortiguador/,k=>/^amo/.test(k)],
+ balan:[/balancin|buje|ecualizador|torque rod|tensor/,k=>/^bal/.test(k)||/^tens/.test(k)],
+ frenos:[/freno|zapata|campana|tambor|ratch|rachet|camara de freno|leva|abs|ajustador/,k=>/^(fre|zap|tam|cam|rat):/.test(k)||k==='fest'||k==='abs'],
+ quinta:[/quinta|king ?pin|plato de acople/,k=>k==='quinta'||k==='quinta:pal'],
+ patas:[/patas? de apoyo|landing|manivela/,k=>k==='patas'||k==='pmec'],
+ hidr:[/hidraulic|piston|cilindro|volco|toma de fuerza|pto|bomba hidraulica/,k=>['hidr','hid','mhid','hmang','pto','pivote'].includes(k)],
+ carr:[/carroceria|platon|compuerta|bisagra|volco|piso|lona|carpa|pestillo/,k=>['carr','piso','comp','lona','travc'].includes(k)],
+ cardan:[/cardan|crucet|eje de transmision|yugo/,k=>k==='cardan'||k==='cruc'],
+ dif:[/diferencial|corona|pinon/,k=>/^dif:/.test(k)],
+ caja:[/caja de (cambios|velocidades)|transmision|embrague|clutch|valvulina/,k=>k==='caja'||k==='embr'],
+ motor:[/motor|inyector|culata|cigue|compresion|freno de motor/,k=>['motor','iny','culata','fmot','smot','ecm'].includes(k)],
+ turbo:[/turbo|admision|intercooler|post-?enfri|filtro de aire/,k=>['turbo','inter','air'].includes(k)],
+ rad:[/radiador|refrigerante|enfria|termostato|ventilador|fan ?clutch|bomba de agua|correa/,k=>['rad','vent','bagua','cor','mrad','refr'].includes(k)],
+ lub:[/aceite|filtro|lubric|engrase|engras|carter/,k=>['filt','carter','engr'].includes(k)],
+ esc:[/escape|silenciador|multiple|exosto|exhosto/,k=>/^esc:/.test(k)],
+ dirn:[/direccion|rotula|terminal|pitman|cremallera|volante/,k=>['dir','bdir','col'].includes(k)],
+ elec:[/electric|bateria|alternador|arranque|luces?\b|bombillo|farola|faro|stop|cableado|fusible|conector|bocina/,k=>['elec','alt','arr','fus','luzT','luzL','luz:I','luz:D','conec','luzt','luzl'].includes(k)],
+ aire:[/tanque de aire|neumatic|compresor|valvula relay|secador|bombona|manguera de aire|manitas?/,k=>['aire','comp','valv','mairec','tanq','relay','maire'].includes(k)],
+ comb:[/combustible|diesel|acpm|tanque de combustible/,k=>k==='comb'||k==='linea'],
+ cab:[/cabina|tapiz|silla|parabrisas|luna\b|lunas|puerta|espejo|retrovisor|acondicionado|capo|parachoques|defensa delantera|limpiaparabrisas|tablero|pintura|latoneria/,k=>['cab','luna','sil','tab','ac','seg','limp','cerr','pint','par','capo','esp:I','esp:D'].includes(k)],
+ estr:[/chasis|estructura|soldadura|percha|travesano|larguero|loder|guardabarro|defensa trasera/,k=>['estr','lod','perch','defe'].includes(k)],
+ eje:[/\beje\b|rodamiento|retenedor|\bcubo|semieje|espárrago|esparrago|tuerca de rueda/,k=>/^(eje|cubo|rod|pern):/.test(k)]
+};
+const GN={llantas:'Llantas',muelles:'Muelles / grapas',amort:'Amortiguadores',balan:'Balancines / bujes / tensores',frenos:'Frenos',quinta:'Quinta rueda / king pin',patas:'Patas de apoyo',hidr:'Sistema hidráulico del volco',carr:'Carrocería / platón',cardan:'Cardán / crucetas',dif:'Diferenciales',caja:'Caja / embrague',motor:'Motor',turbo:'Admisión / turbo',rad:'Enfriamiento / correas',lub:'Lubricación / filtros',esc:'Escape',dirn:'Dirección',elec:'Sistema eléctrico / luces',aire:'Sistema neumático',comb:'Combustible',cab:'Cabina / carrocería',estr:'Chasis y estructura',eje:'Ejes y rodamientos'};
 
 function build(d){
  const inp=d.querySelector('[data-n="partes_intervenidas"]'),rb=d.querySelector('[data-n="resultado"]'),rbox=rb&&rb.closest('div');
@@ -3101,7 +3304,7 @@ function build(d){
  const pb=inp.closest('div');if(pb)pb.style.display='none';
  const blk=document.createElement('div');blk.className='w';blk.id='pt_blk';rbox.parentNode.insertBefore(blk,rbox);
  const f=n=>d.querySelector('[data-n="'+n+'"]'),ro=!!inp.disabled||(typeof canW==='function'&&!canW());
- let S=parse(inp.value),st={mode:null,pset:false,partner:'',hk:''};
+ let S=parse(inp.value),st={mode:null,pset:false,partner:'',hk:'',op:{}};
  const E=()=>(f('equipo')||{}).value||'';
  const text=()=>{const nv=(D.Novedades||[]).find(n=>n.id===(f('novedad_id')||{}).value)||{};return norm(['componente','diagnostico','causa','actividades','resultado'].map(n=>(f(n)||{}).value||'').concat([nv.descripcion,nv.componente]).join(' '))};
  const hints=()=>{const t=text();return Object.keys(GR).filter(g=>GR[g][0].test(t))};
@@ -3109,19 +3312,28 @@ function build(d){
   if(isT(e)){tr=e;rl=st.pset?st.partner:((acts.find(a=>a.tracto===e)||{}).trailer||'')}else if(isR(e)){rl=e;tr=st.pset?st.partner:((acts.find(a=>a.trailer===e)||{}).tracto||'')}
   const L=[tr,rl].filter(Boolean);Object.keys(S).forEach(id=>{const c=id.slice(0,id.indexOf(':'));if(c&&!L.includes(c)&&(isT(c)||isR(c)))L.push(c)});
   return{L,tr,rl,e}};
- const lab=id=>{const i=id.indexOf(':'),c=id.slice(0,i),k=id.slice(i+1);if(!isT(c)&&!isR(c))return id;const C=cat(c),x=C.P.find(p=>p.k===k)||C.T.find(p=>p.k===k);return x?x.l:k};
+ const lab=id=>{const i=id.indexOf(':'),c=id.slice(0,i),k=id.slice(i+1);if(!isT(c)&&!isR(c))return id;if(k.startsWith('otro:'))return 'Otro: '+k.slice(5);const C=cat(c),x=C.P.find(p=>p.k===k)||C.T.find(p=>p.k===k);return x?x.l:k};
  const hit=(k,H)=>H.some(g=>GR[g][1](k));
+
  function svg(c,H){
-  const C=cat(c);let s=`<svg viewBox="0 0 300 ${C.H}" style="width:100%;max-width:300px;background:#fff;border:1px solid #d5e0e7;border-radius:10px" role="img" aria-label="Diagrama de ${esc(c)}">`;
-  s+=C.tr?`<rect x="95" y="8" width="110" height="54" rx="12" fill="#cfdde6"/><rect x="112" y="62" width="76" height="300" rx="6" fill="#e9eff3" stroke="#b7c6d0"/>`:`<rect x="120" y="22" width="60" height="${C.H-50}" rx="6" fill="#e9eff3" stroke="#b7c6d0"/>`;
-  C.AX.forEach(y=>s+=`<line x1="50" y1="${y}" x2="250" y2="${y}" stroke="#78909c" stroke-width="3"/>`);
+  const C=cat(c);let s=`<svg viewBox="0 0 400 ${C.H}" style="width:100%;max-width:420px;background:#fff;border:1px solid #d5e0e7;border-radius:10px" role="img" aria-label="Diagrama de ${esc(c)}">`+C.body;
+  C.AX.forEach(y=>s+=`<line x1="52" y1="${y}" x2="348" y2="${y}" stroke="#78909c" stroke-width="3"/>`);
   C.T.forEach(t=>{const id=c+':'+t.k,v=S[id],h=hit(t.k,H)&&!v;s+=`<rect data-pk="${esc(id)}" data-pl="${esc(t.l)}" x="${t.x-8}" y="${t.y-15}" width="16" height="30" rx="3" fill="${v?TY[v][1]:'#455a64'}" stroke="${h?'#ef8f00':'#263238'}" stroke-width="${h?2.5:1}"${h?' stroke-dasharray="3 2"':''} style="cursor:pointer"><title>${esc(t.l)}</title></rect>`});
   C.P.forEach(p=>{
-   if(p.t){s+=`<text x="${p.x}" y="${p.y+3}" text-anchor="${p.mid?'middle':'start'}" font-size="8" fill="#607d8b" pointer-events="none">${esc(p.lb)}</text>`;return}
+   if(p.t){s+=`<text x="${p.x}" y="${p.y+(p.end?0:3)}" text-anchor="${p.mid?'middle':'end'}" font-size="8" fill="#607d8b" pointer-events="none">${esc(p.lb)}</text>`;return}
+   if(p.x==null)return;
    const id=c+':'+p.k,v=S[id],h=hit(p.k,H)&&!v;
-   s+=`<g data-pk="${esc(id)}" data-pl="${esc(p.l)}" style="cursor:pointer"><circle cx="${p.x}" cy="${p.y}" r="9" fill="${v?TY[v][1]:'#fff'}" stroke="${h?'#ef8f00':'#546e7a'}" stroke-width="${h?2.5:1.5}"${h?' stroke-dasharray="3 2"':''}/><text x="${p.x}" y="${p.y+3.5}" text-anchor="middle" font-size="9" font-weight="700" fill="${v?'#fff':'#37474f'}" pointer-events="none">${esc(p.a)}</text><title>${esc(p.l)}</title></g>`;
-   if(p.s)s+=`<text x="${p.side==='l'?p.x-13:p.x+13}" y="${p.y+3}" text-anchor="${p.side==='l'?'end':'start'}" font-size="9" fill="#455a64" pointer-events="none">${esc(p.s)}</text>`});
+   s+=`<g data-pk="${esc(id)}" data-pl="${esc(p.l)}" style="cursor:pointer"><circle cx="${p.x}" cy="${p.y}" r="10" fill="${v?TY[v][1]:'#fff'}" stroke="${h?'#ef8f00':'#546e7a'}" stroke-width="${h?2.5:1.5}"${h?' stroke-dasharray="3 2"':''}/><text x="${p.x}" y="${p.y+3.5}" text-anchor="middle" font-size="9" font-weight="700" fill="${v?'#fff':'#37474f'}" pointer-events="none">${esc(p.a)}</text><title>${esc(p.l)}</title></g>`;
+   if(p.s&&p.side)s+=`<text x="${p.side==='l'?p.x-14:p.x+14}" y="${p.y+3.5}" text-anchor="${p.side==='l'?'end':'start'}" font-size="9.5" fill="${v?TY[v][1]:'#37474f'}" font-weight="${v?700:400}" pointer-events="none">${esc(p.s)}</text>`});
   return s+'</svg>'}
+ const OP=(k,df)=>st.op&&st.op[k]!==undefined?st.op[k]:!!df;
+ function lista(c,H){
+  const C=cat(c),chip=(p)=>{const id=c+':'+p.k,v=S[id],h=hit(p.k,H)&&!v;return `<button type="button" data-pk="${esc(id)}" data-pl="${esc(p.l)}" style="all:unset;cursor:${ro?'default':'pointer'};font-size:12px;padding:3px 9px;border-radius:12px;border:${h?'2px dashed #ef8f00':'1px solid #b7c6d0'};background:${v?TY[v][1]:'#fff'};color:${v?'#fff':'#263238'};font-weight:${v?700:400}">${esc(p.l)}</button>`};
+  const extra=Object.keys(S).filter(id=>id.startsWith(c+':otro:')).map(id=>({k:id.slice(c.length+1),l:'Otro: '+id.slice(c.length+6)}));
+  const gs=C.G.concat(extra.length?[{n:'Otros componentes agregados',items:extra}]:[]);
+  const nT=gs.reduce((a,g)=>a+g.items.length,0);
+  return `<details data-dk="L:${esc(c)}" ${OP("L:"+c,0)?"open":""} style="margin-top:6px"><summary style="cursor:pointer;font-weight:700;color:var(--p)">📋 Lista completa de componentes (${nT})</summary>${gs.map(g=>{const n=g.items.filter(p=>S[c+':'+p.k]).length,hh=g.items.some(p=>hit(p.k,H)&&!S[c+':'+p.k]);return `<details data-dk="${esc(c+':'+g.n)}" ${OP(c+":"+g.n,n||hh)?'open':''} style="margin:3px 0"><summary style="cursor:pointer;font-weight:600">${esc(g.n)} <small>(${g.items.length}${n?' · '+n+' marcados':''})</small></summary><div style="display:flex;flex-wrap:wrap;gap:5px;padding:5px 0">${g.items.map(chip).join('')}</div></details>`}).join('')}${ro?'':`<div style="margin-top:6px;font-size:12px">➕ ¿Otro componente que no está en la lista? <input data-oi="${esc(c)}" maxlength="60" placeholder="Ej.: soporte de cabina" style="width:200px"> <button type="button" class=s data-oa="${esc(c)}">Agregar</button></div>`}</details>`}
+
  function draw(){
   const U=codes(),H=hints(),mode=st.mode||((f('novedad_id')||{}).value?'C':'P');st.hk=H.join(',');
   if(!U.e){blk.innerHTML='<h4 style="margin:8px 0 4px;color:var(--p)">🔧 Partes intervenidas</h4><small>Seleccione primero el equipo de la orden para ver el diagrama del tractocamión y del tráiler.</small>';return}
@@ -3133,12 +3345,12 @@ function build(d){
 ${ro?'':`<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:6px 0">${Object.entries(TY).map(([k,v])=>`<label style="display:inline-flex;gap:4px;align-items:center;padding:3px 9px;border-radius:14px;border:2px solid ${v[1]};background:${mode===k?v[1]:'#fff'};color:${mode===k?'#fff':v[1]};font-weight:700;cursor:pointer"><input type=radio name=pt_t value="${k}" ${mode===k?'checked':''} style="margin:0"> ${v[0]}</label>`).join('')}
 <label style="display:inline-flex;gap:4px;align-items:center">${isTE?'Tráiler acoplado':'Tractocamión acoplado'}: <select data-pp><option value="">— ninguno —</option>${opts.map(o=>`<option ${o===cur?'selected':''}>${esc(o)}</option>`).join('')}</select></label></div>`}
 ${H.length?`<div class=wn style="margin:4px 0"><small>🔎 Según el texto de la orden se trabajó en: <b>${H.map(g=>GN[g]).join(', ')}</b>. Marque en el diagrama la posición exacta.</small></div>`:''}
-<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">${U.L.map(c=>`<div style="flex:0 1 310px;min-width:240px"><div style="font-weight:700;margin:2px 0">${isT(c)?'🚛 Tractocamión':'🚚 Tráiler (volco)'} · ${esc(c)}</div>${svg(c,H)}${isR(c)&&!ro?`<div style="margin-top:4px;font-size:12px">Balancines <input type=number min=0 max=8 data-cb="${esc(c)}" value="${nm(cfgG(c).bal,0,8,4)}" style="width:52px"> · Muelles <input type=number min=0 max=8 data-cm="${esc(c)}" value="${nm(cfgG(c).mue,0,8,4)}" style="width:52px"> <small>(numerados de adelante hacia atrás; ajústelos a su tráiler)</small></div>`:''}</div>`).join('')}</div>
+<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">${U.L.map(c=>`<div style="flex:1 1 360px;min-width:260px;max-width:430px"><div style="font-weight:700;margin:2px 0">${isT(c)?'🚛 Tractocamión':'🚚 Tráiler (volco)'} · ${esc(c)}</div><div style="font-size:12px;color:#455a64;margin-bottom:3px">${esc(cat(c).title)}</div>${svg(c,H)}${lista(c,H)}${isR(c)&&!ro?`<div style="margin-top:4px;font-size:12px">Balancines <input type=number min=0 max=8 data-cb="${esc(c)}" value="${nm(cfgG(c).bal,0,8,4)}" style="width:52px"> · Muelles <input type=number min=0 max=8 data-cm="${esc(c)}" value="${nm(cfgG(c).mue,0,8,4)}" style="width:52px"> <small>(numerados de adelante hacia atrás; ajústelos a su tráiler)</small></div>`:''}</div>`).join('')}</div>
 <div id=pt_st style="margin:6px 0;min-height:18px;font-weight:600;color:var(--p)"> </div>
 <div style="background:#fff;border:1px solid #d5e0e7;border-radius:10px;padding:8px"><b>Resumen de partes intervenidas</b> · ${tipos.length?Object.entries(TY).map(([k,v])=>n(k)?`<span style="color:${v[1]};font-weight:700">${v[0]}: ${n(k)}</span>`:'').filter(Boolean).join(' · '):'<small>aún no hay partes marcadas</small>'}
 ${byC.map(([c,ids])=>`<div style="margin-top:6px"><b>${isT(c)?'Tractocamión':'Tráiler'} ${esc(c)}</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:3px">${ids.map(id=>{const t=S[id];return`<span style="display:inline-flex;gap:5px;align-items:center;padding:2px 8px;border-radius:12px;background:${TY[t][1]};color:#fff;font-size:12px">${esc(lab(id))} · ${TY[t][0]}${ro?'':`<button type=button data-rm="${esc(id)}" style="all:unset;cursor:pointer;font-weight:700" title="Quitar">✕</button>`}</span>`}).join('')}</div></div>`).join('')}</div>`};
  const save=()=>{inp.value=ser(S);inp.dispatchEvent(new Event('input',{bubbles:true}))};
- blk.onclick=e=>{if(ro)return;const rm=e.target.closest('[data-rm]');if(rm){delete S[rm.dataset.rm];save();draw();return}
+ blk.addEventListener('toggle',e=>{const k=e.target.dataset&&e.target.dataset.dk;if(k)st.op[k]=e.target.open},true);blk.onclick=e=>{if(ro)return;const oa=e.target.closest('[data-oa]');if(oa){const c=oa.dataset.oa,i=blk.querySelector('[data-oi="'+c+'"]'),t=(i.value||'').replace(/[;=:]/g,' ').replace(/\s+/g,' ').trim().slice(0,60);if(!t)return;S[c+':otro:'+t]=st.mode||((f('novedad_id')||{}).value?'C':'P');save();draw();return};const rm=e.target.closest('[data-rm]');if(rm){delete S[rm.dataset.rm];save();draw();return}
   const p=e.target.closest('[data-pk]');if(!p)return;const id=p.dataset.pk,m=st.mode||((f('novedad_id')||{}).value?'C':'P');if(S[id]===m)delete S[id];else S[id]=m;save();draw()};
  blk.onchange=e=>{const t=e.target;if(t.name==='pt_t'){st.mode=t.value;draw()}else if(t.dataset.pp!=null){st.pset=true;st.partner=t.value;draw()}
   else if(t.dataset.cb!=null||t.dataset.cm!=null){const c=t.dataset.cb||t.dataset.cm,g=cfgG(c);if(t.dataset.cb!=null)g.bal=nm(t.value,0,8,4);else g.mue=nm(t.value,0,8,4);cfgS(c,g);draw()}};
